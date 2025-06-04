@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "./prisma/intdb.db"
+}
+
+enum Direction {
+  forward
+  reverse
+}
+
+enum HandoverStatus {
+  pending
+  done
+}
+
+model Handover {
+  id            Int           @id @default(autoincrement())
+  handover_date DateTime
+  quantity      Int
+  status        HandoverStatus @default(pending) // Use HandoverStatus enum with default "pending"
+  date_added    DateTime      @default(now())
+  platform      String?       // shopee or lazada
+  file_name     String?       // name of the uploaded XLSX file
+  parcels       Parcel[]      // One-to-many relationship with parcels
+}
+
+model Parcel {
+  tracking_number String    @id // Make tracking_number the primary key
+  port_code       String?   // port code from XLSX data
+  package_type    String?   // package type from XLSX data
+  direction       Direction @default(forward) // Use enum with default "forward"
+  updated_by      String
+  status          String    @default("in_linehaul")
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  handover_id     Int?      // Foreign key to Handover
+  handover        Handover? @relation(fields: [handover_id], references: [id])
+}
+
+model Export {
+  id            Int      @id @default(autoincrement())
+  export_name   String
+  date_uploaded DateTime @default(now())
+  export_dir    String
+}
+
+model ParcelEventLog {
+  id              Int      @id @default(autoincrement())
+  tracking_number String
+  updated_by      String   // system, export_file, manual
+  from_status     String
+  new_status      String
+  created_at      DateTime @default(now())
+}
