@@ -51,8 +51,8 @@ export default function Dashboard() {
       const parcelsData = await parcelsResponse.json();
 
       if (handoversData.success && parcelsData.success) {
-        const handovers = handoversData.data.handovers;
-        const parcels = parcelsData.data.parcels;
+        const handovers = handoversData.handovers; // Remove .data wrapper
+        const parcels = parcelsData.data.parcels; // Keep .data wrapper for parcels
 
         // Calculate stats
         const pendingHandovers = handovers.filter((h: any) => h.status === 'pending').length;

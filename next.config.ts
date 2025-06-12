@@ -5,6 +5,14 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true
   },
+  turbopack: {
+    resolveAlias: {
+      '@': './app',
+      '@components': './app/components',
+      '@generated': './app/generated',
+      '@lib': './app/lib',
+    },
+  },
 };
 
 export default nextConfig;

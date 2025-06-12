@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@generated/prisma';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,6 +17,11 @@ export async function GET(request: NextRequest) {
     const portCode = searchParams.get('portCode') || '';
     const handoverId = searchParams.get('handoverId') || '';
     const updatedBy = searchParams.getAll('updatedBy'); // Changed to getAll for multiple values
+    const platform = searchParams.get('platform') || ''; // Add platform filter
+    
+    // Sorting parameters
+    const sortBy = searchParams.get('sortBy') || 'updated_at';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
     
     // Build where clause for filtering
     const where: any = {};
@@ -48,12 +51,41 @@ export async function GET(request: NextRequest) {
     }
     
     if (handoverId) {
-      where.handover_id = parseInt(handoverId);
+      if (handoverId === 'null') {
+        where.handover_id = null;
+      } else {
+        where.handover_id = parseInt(handoverId);
+      }
     }
     
     if (updatedBy.length > 0) {
       where.updated_by = {
         in: updatedBy
+      };
+    }
+
+    if (platform) {
+      where.handover = {
+        platform: platform
+      };
+    }
+
+    // Build orderBy clause
+    let orderBy: any = {};
+    
+    if (sortBy === 'handover') {
+      orderBy = {
+        handover: {
+          handover_date: sortOrder
+        }
+      };
+    } else if (sortBy === 'handover_id') {
+      orderBy = {
+        handover_id: sortOrder
+      };
+    } else {
+      orderBy = {
+        [sortBy]: sortOrder
       };
     }
 
@@ -68,13 +100,13 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             file_name: true,
-            handover_date: true
+            handover_date: true,
+            status: true,
+            platform: true
           }
         }
       },
-      orderBy: {
-        updated_at: 'desc'
-      },
+      orderBy,
       skip,
       take: limit
     });

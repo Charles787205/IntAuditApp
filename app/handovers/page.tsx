@@ -71,8 +71,8 @@ export default function HandoversPage() {
           setHandovers(transformedHandovers);
           console.log('Transformed handovers:', transformedHandovers);
         } else {
-          console.log('No database handovers found or API failed');
-          throw new Error('No handovers found');
+          console.log('No database handovers found, starting with empty list');
+          setHandovers([]); // Set empty array instead of throwing error
         }
       } catch (error) {
         console.error('Error fetching handovers:', error);
@@ -145,15 +145,22 @@ export default function HandoversPage() {
           handoverFrom: 'Current User',
           handoverTo: 'TBD',
           status: 'pending',
-          notes: `File: ${handoverData.file?.name || 'No file'} - ${handoverData.extractedData?.length || 0} records saved to database`,
+          notes: `File: ${handoverData.file?.name || 'No file'} - ${result.handover.parcels.length} records saved to database`,
           createdAt: new Date().toISOString().split('T')[0],
           fileName: handoverData.file?.name,
           extractedData: handoverData.extractedData,
-          parcelCount: handoverData.extractedData?.length || 0
+          parcelCount: result.handover.parcels.length
         };
 
         setHandovers(prev => [uiHandover, ...prev]);
         console.log('Handover and parcels saved to database:', result.handover);
+        
+        // Show message about duplicates if any were skipped
+        if (result.duplicatesSkipped > 0) {
+          alert(`${result.message}\n\nTotal records in file: ${handoverData.extractedData?.length || 0}\nRecords saved: ${result.handover.parcels.length}\nDuplicates skipped: ${result.duplicatesSkipped}`);
+        } else {
+          alert(result.message);
+        }
       } else {
         throw new Error(result.error || 'Failed to save handover');
       }

@@ -2,6 +2,15 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import ParcelEventLogsModal from '@/components/ParcelEventLogsModal';
+
+interface Handover {
+  id: number;
+  file_name: string | null;
+  handover_date: string;
+  status: string;
+  platform: string | null;
+}
 
 interface Parcel {
   tracking_number: string;
@@ -13,11 +22,7 @@ interface Parcel {
   created_at: string;
   updated_at: string;
   handover_id: number | null;
-  handover?: {
-    id: number;
-    file_name: string | null;
-    handover_date: string;
-  } | null;
+  handover?: Handover | null;
 }
 
 interface PaginationData {
@@ -31,16 +36,20 @@ interface PaginationData {
 
 interface FilterState {
   search: string;
-  statuses: string[]; // Changed to array
+  statuses: string[];
   direction: string;
-  updatedBy: string[]; // Changed to array
-  pageSize: number; // Add page size
+  updatedBy: string[];
+  handoverId: string;
+  pageSize: number;
+  sortBy: string;
+  sortOrder: string;
 }
 
 interface FilterOptions {
   statuses: string[];
   directions: string[];
   updatedBy: string[];
+  handovers: Handover[];
 }
 
 // Separate component for search params logic
@@ -54,14 +63,18 @@ function ParcelsContent() {
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     statuses: [],
     directions: [],
-    updatedBy: []
+    updatedBy: [],
+    handovers: []
   });
   const [filters, setFilters] = useState<FilterState>({
     search: searchParams.get('search') || '',
     statuses: searchParams.getAll('status') || [],
     direction: searchParams.get('direction') || '',
     updatedBy: searchParams.getAll('updatedBy') || [],
-    pageSize: parseInt(searchParams.get('limit') || '20'), // Default to 20
+    handoverId: searchParams.get('handoverId') || '',
+    pageSize: parseInt(searchParams.get('limit') || '20'),
+    sortBy: searchParams.get('sortBy') || 'updated_at',
+    sortOrder: searchParams.get('sortOrder') || 'desc',
   });
 
   const [currentPage, setCurrentPage] = useState(
@@ -71,6 +84,9 @@ function ParcelsContent() {
   // State for dropdown open/close
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [updatedByDropdownOpen, setUpdatedByDropdownOpen] = useState(false);
+  const [selectedParcelTrackingNumber, setSelectedParcelTrackingNumber] = useState<string>('');
+  const [showEventLogsModal, setShowEventLogsModal] = useState(false);
+  const [includePortCode, setIncludePortCode] = useState(false);
 
   // Refs for click outside detection
   const statusDropdownRef = useRef<HTMLDivElement>(null);
@@ -139,10 +155,13 @@ function ParcelsContent() {
       const params = new URLSearchParams();
       params.set('page', page.toString());
       params.set('limit', currentFilters.pageSize.toString());
+      params.set('sortBy', currentFilters.sortBy);
+      params.set('sortOrder', currentFilters.sortOrder);
       
       // Handle string filters
       if (currentFilters.search) params.set('search', currentFilters.search);
       if (currentFilters.direction) params.set('direction', currentFilters.direction);
+      if (currentFilters.handoverId) params.set('handoverId', currentFilters.handoverId);
       
       // Handle array filters
       currentFilters.statuses.forEach(status => params.append('status', status));
@@ -184,10 +203,13 @@ function ParcelsContent() {
     
     if (page > 1) params.set('page', page.toString());
     if (newFilters.pageSize !== 20) params.set('limit', newFilters.pageSize.toString());
+    if (newFilters.sortBy !== 'updated_at') params.set('sortBy', newFilters.sortBy);
+    if (newFilters.sortOrder !== 'desc') params.set('sortOrder', newFilters.sortOrder);
     
     // Handle string filters
     if (newFilters.search) params.set('search', newFilters.search);
     if (newFilters.direction) params.set('direction', newFilters.direction);
+    if (newFilters.handoverId) params.set('handoverId', newFilters.handoverId);
     
     // Handle array filters
     newFilters.statuses.forEach(status => params.append('status', status));
@@ -206,6 +228,15 @@ function ParcelsContent() {
     fetchParcels(1, newFilters);
   };
 
+  // Handle sorting
+  const handleSort = (sortBy: string) => {
+    const newSortOrder = filters.sortBy === sortBy && filters.sortOrder === 'asc' ? 'desc' : 'asc';
+    const newFilters = { ...filters, sortBy, sortOrder: newSortOrder };
+    setFilters(newFilters);
+    updateURL(newFilters, currentPage);
+    fetchParcels(currentPage, newFilters);
+  };
+
   // Handle page changes
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
@@ -220,7 +251,10 @@ function ParcelsContent() {
       statuses: filterOptions.statuses, // Select all statuses by default
       direction: '',
       updatedBy: filterOptions.updatedBy, // Select all users by default
+      handoverId: '',
       pageSize: 20,
+      sortBy: 'updated_at',
+      sortOrder: 'desc',
     };
     setFilters(clearedFilters);
     setCurrentPage(1);
@@ -264,10 +298,13 @@ function ParcelsContent() {
       const params = new URLSearchParams();
       params.set('page', '1');
       params.set('limit', '10000'); // High limit to get all results
+      params.set('sortBy', filters.sortBy);
+      params.set('sortOrder', filters.sortOrder);
       
       // Apply same filters as current view
       if (filters.search) params.set('search', filters.search);
       if (filters.direction) params.set('direction', filters.direction);
+      if (filters.handoverId) params.set('handoverId', filters.handoverId);
       
       // Handle array filters
       filters.statuses.forEach(status => params.append('status', status));
@@ -277,10 +314,16 @@ function ParcelsContent() {
       const data = await response.json();
 
       if (data.success) {
-        const allTrackingNumbers = data.data.parcels.map((parcel: Parcel) => parcel.tracking_number).join('\n');
+        const allTrackingNumbers = data.data.parcels.map((parcel: Parcel) => {
+          if (includePortCode && parcel.port_code) {
+            return `${parcel.tracking_number}\t${parcel.port_code}`;
+          }
+          return parcel.tracking_number;
+        }).join('\n');
+        
         await navigator.clipboard.writeText(allTrackingNumbers);
         
-        console.log(`Copied ${data.data.parcels.length} tracking numbers to clipboard`);
+        console.log(`Copied ${data.data.parcels.length} tracking numbers${includePortCode ? ' with port codes' : ''} to clipboard`);
         // You could add a toast notification here showing the actual count
       } else {
         console.error('Failed to fetch all parcels for copying:', data.error);
@@ -290,14 +333,170 @@ function ParcelsContent() {
       // Fallback for older browsers
       try {
         // If the modern API failed, try to get current page data as fallback
-        const trackingNumbers = parcels.map(parcel => parcel.tracking_number).join('\n');
+        const trackingNumbers = parcels.map(parcel => {
+          if (includePortCode && parcel.port_code) {
+            return `${parcel.tracking_number}\t${parcel.port_code}`;
+          }
+          return parcel.tracking_number;
+        }).join('\n');
+        
         const textArea = document.createElement('textarea');
         textArea.value = trackingNumbers;
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        console.log(`Copied ${parcels.length} tracking numbers (current page only) to clipboard`);
+        console.log(`Copied ${parcels.length} tracking numbers${includePortCode ? ' with port codes' : ''} (current page only) to clipboard`);
+      } catch (fallbackError) {
+        console.error('All clipboard methods failed:', fallbackError);
+      }
+    }
+  };
+
+  // Copy tracking numbers grouped by days since handover date
+  const copyTrackingNumbersByDays = async () => {
+    try {
+      // Show loading state
+      console.log('Fetching all tracking numbers grouped by handover days...');
+      
+      // Build params for ALL results (same filters, but with high limit and page 1)
+      const params = new URLSearchParams();
+      params.set('page', '1');
+      params.set('limit', '10000'); // High limit to get all results
+      params.set('sortBy', filters.sortBy);
+      params.set('sortOrder', filters.sortOrder);
+      
+      // Apply same filters as current view
+      if (filters.search) params.set('search', filters.search);
+      if (filters.direction) params.set('direction', filters.direction);
+      if (filters.handoverId) params.set('handoverId', filters.handoverId);
+      
+      // Handle array filters
+      filters.statuses.forEach(status => params.append('status', status));
+      filters.updatedBy.forEach(updatedBy => params.append('updatedBy', updatedBy));
+
+      const response = await fetch(`/api/parcels?${params}`);
+      const data = await response.json();
+
+      if (data.success) {
+        // Group parcels by days since handover date
+        const now = new Date();
+        const groupedByDays: { [key: number]: string[] } = {};
+        const noHandoverParcels: string[] = [];
+        
+        data.data.parcels.forEach((parcel: Parcel) => {
+          // If parcel has no handover, put it in a separate group
+          if (!parcel.handover) {
+            const trackingEntry = includePortCode && parcel.port_code 
+              ? `${parcel.tracking_number}\t${parcel.port_code}`
+              : parcel.tracking_number;
+            noHandoverParcels.push(trackingEntry);
+            return;
+          }
+          
+          const handoverDate = new Date(parcel.handover.handover_date);
+          const timeDiff = now.getTime() - handoverDate.getTime();
+          const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+          
+          if (!groupedByDays[daysDiff]) {
+            groupedByDays[daysDiff] = [];
+          }
+          
+          const trackingEntry = includePortCode && parcel.port_code 
+            ? `${parcel.tracking_number}\t${parcel.port_code}`
+            : parcel.tracking_number;
+          groupedByDays[daysDiff].push(trackingEntry);
+        });
+        
+        // Sort by days (descending - oldest first)
+        const sortedDays = Object.keys(groupedByDays)
+          .map(day => parseInt(day))
+          .sort((a, b) => b - a);
+        
+        // Format the output
+        let formattedOutput = '';
+        
+        // Add parcels with handovers first (sorted by days)
+        sortedDays.forEach(days => {
+          const dayLabel = days === 0 ? 'Today' : 
+                          days === 1 ? '1 day ago' : 
+                          `${days} days ago`;
+          
+          formattedOutput += `${dayLabel}\n`;
+          formattedOutput += groupedByDays[days].join('\n');
+          formattedOutput += '\n\n';
+        });
+        
+        // Add parcels without handovers at the end
+        if (noHandoverParcels.length > 0) {
+          formattedOutput += 'No Handover\n';
+          formattedOutput += noHandoverParcels.join('\n');
+          formattedOutput += '\n\n';
+        }
+        
+        await navigator.clipboard.writeText(formattedOutput.trim());
+        
+        console.log(`Copied ${data.data.parcels.length} tracking numbers grouped by handover days to clipboard`);
+        // You could add a toast notification here showing the actual count
+      } else {
+        console.error('Failed to fetch all parcels for copying:', data.error);
+      }
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      // Fallback for older browsers
+      try {
+        // If the modern API failed, try to get current page data as fallback
+        const now = new Date();
+        const groupedByDays: { [key: number]: string[] } = {};
+        const noHandoverParcels: string[] = [];
+        
+        parcels.forEach((parcel: Parcel) => {
+          if (!parcel.handover) {
+            const trackingEntry = includePortCode && parcel.port_code 
+              ? `${parcel.tracking_number}\t${parcel.port_code}`
+              : parcel.tracking_number;
+            noHandoverParcels.push(trackingEntry);
+            return;
+          }
+          
+          const handoverDate = new Date(parcel.handover.handover_date);
+          const timeDiff = now.getTime() - handoverDate.getTime();
+          const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+          
+          if (!groupedByDays[daysDiff]) {
+            groupedByDays[daysDiff] = [];
+          }
+          groupedByDays[daysDiff].push(parcel.tracking_number);
+        });
+        
+        const sortedDays = Object.keys(groupedByDays)
+          .map(day => parseInt(day))
+          .sort((a, b) => b - a);
+        
+        let formattedOutput = '';
+        sortedDays.forEach(days => {
+          const dayLabel = days === 0 ? 'Today' : 
+                          days === 1 ? '1 day ago' : 
+                          `${days} days ago`;
+          
+          formattedOutput += `${dayLabel}\n`;
+          formattedOutput += groupedByDays[days].join('\n');
+          formattedOutput += '\n\n';
+        });
+        
+        if (noHandoverParcels.length > 0) {
+          formattedOutput += 'No Handover\n';
+          formattedOutput += noHandoverParcels.join('\n');
+          formattedOutput += '\n\n';
+        }
+        
+        const textArea = document.createElement('textarea');
+        textArea.value = formattedOutput.trim();
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        console.log(`Copied ${parcels.length} tracking numbers (current page only) grouped by handover days to clipboard`);
       } catch (fallbackError) {
         console.error('All clipboard methods failed:', fallbackError);
       }
@@ -349,6 +548,35 @@ function ParcelsContent() {
     });
   };
 
+  const getSortIcon = (column: string) => {
+    if (filters.sortBy !== column) {
+      return (
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
+    }
+    return filters.sortOrder === 'asc' ? (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+      </svg>
+    ) : (
+      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" />
+      </svg>
+    );
+  };
+
+  const handleParcelClick = (trackingNumber: string) => {
+    setSelectedParcelTrackingNumber(trackingNumber);
+    setShowEventLogsModal(true);
+  };
+
+  const closeEventLogsModal = () => {
+    setShowEventLogsModal(false);
+    setSelectedParcelTrackingNumber('');
+  };
+
   if (isLoading && parcels.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -388,7 +616,7 @@ function ParcelsContent() {
           </button>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -403,6 +631,28 @@ function ParcelsContent() {
                        bg-white dark:bg-slate-700 text-slate-900 dark:text-white
                        focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
+          </div>
+
+          {/* Handover Filter */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Handover
+            </label>
+            <select
+              value={filters.handoverId}
+              onChange={(e) => handleFilterChange('handoverId', e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md text-sm
+                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                       focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Handovers</option>
+              <option value="null">No Handover</option>
+              {filterOptions.handovers.map(handover => (
+                <option key={handover.id} value={handover.id}>
+                  ID {handover.id} - {handover.file_name || 'No filename'} ({formatDate(handover.handover_date)})
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Status Dropdown */}
@@ -596,19 +846,46 @@ function ParcelsContent() {
                   Showing {((pagination.currentPage - 1) * pagination.limit) + 1} - {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of {pagination.totalCount}
                 </span>
               )}
+              
+              {/* Include Port Code Checkbox */}
+              <label className="flex items-center space-x-2 text-sm text-slate-600 dark:text-slate-400">
+                <input
+                  type="checkbox"
+                  checked={includePortCode}
+                  onChange={(e) => setIncludePortCode(e.target.checked)}
+                  className="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 focus:ring-2"
+                />
+                <span>Include Port Code (\t)</span>
+              </label>
+              
               <button
                 onClick={copyTrackingNumbers}
                 disabled={!pagination || pagination.totalCount === 0}
                 className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md 
                          hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
                          disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Copy all tracking numbers from current filtered results"
+                title={`Copy all tracking numbers${includePortCode ? ' with port codes (tab-separated)' : ''} from current filtered results`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
                 <span>
                   Copy Tracking Numbers ({pagination ? pagination.totalCount.toLocaleString() : '0'})
+                </span>
+              </button>
+              <button
+                onClick={copyTrackingNumbersByDays}
+                disabled={!pagination || pagination.totalCount === 0}
+                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md 
+                         hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
+                         disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title={`Copy tracking numbers${includePortCode ? ' with port codes (tab-separated)' : ''} grouped by days since handover date`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h1m4 4h-1v-4h1m-9 8h10a2 2 0 002-2v-6a2 2 0 00-2-2H7a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                </svg>
+                <span>
+                  Copy Tracking Numbers by Days ({pagination ? pagination.totalCount.toLocaleString() : '0'})
                 </span>
               </button>
             </div>
@@ -619,29 +896,77 @@ function ParcelsContent() {
           <table className="w-full">
             <thead className="bg-slate-50 dark:bg-slate-700/50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Tracking Number
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => handleSort('tracking_number')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Tracking Number</span>
+                    {getSortIcon('tracking_number')}
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Status
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Status</span>
+                    {getSortIcon('status')}
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Direction
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => handleSort('direction')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Direction</span>
+                    {getSortIcon('direction')}
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Port Code
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => handleSort('port_code')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Port Code</span>
+                    {getSortIcon('port_code')}
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Package Type
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => handleSort('package_type')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Package Type</span>
+                    {getSortIcon('package_type')}
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Handover
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => handleSort('handover')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Handover</span>
+                    {getSortIcon('handover')}
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Updated By
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => handleSort('updated_by')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Updated By</span>
+                    {getSortIcon('updated_by')}
+                  </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  Updated At
+                <th 
+                  className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                  onClick={() => handleSort('updated_at')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Updated At</span>
+                    {getSortIcon('updated_at')}
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -652,9 +977,12 @@ function ParcelsContent() {
                   className="hover:bg-slate-50 dark:hover:bg-slate-700/30"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-slate-900 dark:text-white">
+                    <button
+                      onClick={() => handleParcelClick(parcel.tracking_number)}
+                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer"
+                    >
                       {parcel.tracking_number}
-                    </div>
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(parcel.status)}
@@ -674,16 +1002,11 @@ function ParcelsContent() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {parcel.handover ? (
-                      <div className="text-sm">
-                        <div className="font-medium text-slate-900 dark:text-white">
-                          ID: {parcel.handover.id}
-                        </div>
-                        <div className="text-slate-500 dark:text-slate-400">
-                          {parcel.handover.file_name}
-                        </div>
+                      <div className="text-sm text-slate-900 dark:text-white">
+                        {formatDate(parcel.handover.handover_date)}
                       </div>
                     ) : (
-                      <span className="text-sm text-slate-500 dark:text-slate-400">-</span>
+                      <span className="text-sm text-slate-500 dark:text-slate-400">No handover</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -772,6 +1095,13 @@ function ParcelsContent() {
           </p>
         </div>
       )}
+
+      {/* Event Logs Modal */}
+      <ParcelEventLogsModal
+        isOpen={showEventLogsModal}
+        onClose={closeEventLogsModal}
+        trackingNumber={selectedParcelTrackingNumber}
+      />
     </div>
   );
 }

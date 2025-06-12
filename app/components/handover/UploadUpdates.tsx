@@ -458,16 +458,23 @@ export default function UploadUpdates({ isOpen, onClose, handoverId, onSuccess }
           <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-slate-200 dark:border-slate-700">
             <button
               onClick={handleClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+              className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleUpload}
               disabled={!selectedFile || isUploading}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
             >
-              {isUploading ? 'Starting Upload...' : 'Upload Updates'}
+              {isUploading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Starting Upload...</span>
+                </div>
+              ) : (
+                'Upload Updates'
+              )}
             </button>
           </div>
         </div>

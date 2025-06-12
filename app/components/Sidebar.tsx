@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -10,6 +11,8 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const [lazadaExpanded, setLazadaExpanded] = useState(false);
+  const [shopeeExpanded, setShopeeExpanded] = useState(false);
 
   const menuItems = [
     {
@@ -43,6 +46,84 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
         </svg>
       ),
     },
+    {
+      id: 'couriers',
+      label: 'Couriers',
+      href: '/couriers',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+        </svg>
+      ),
+    },
+    {
+      id: 'lazada',
+      label: 'Lazada',
+      type: 'dropdown',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+        </svg>
+      ),
+      expanded: lazadaExpanded,
+      onToggle: () => setLazadaExpanded(!lazadaExpanded),
+      children: [
+        {
+          id: 'lazada-handovers',
+          label: 'Handovers',
+          href: '/lazada/handovers',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          ),
+        },
+        {
+          id: 'lazada-parcels',
+          label: 'Parcels',
+          href: '/lazada/parcels',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+          ),
+        },
+      ]
+    },
+    {
+      id: 'shopee',
+      label: 'Shopee',
+      type: 'dropdown',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m1.6 8L5 3H3m4 10v6a1 1 0 001 1h10a1 1 0 001-1v-6M9 19v2m6-2v2" />
+        </svg>
+      ),
+      expanded: shopeeExpanded,
+      onToggle: () => setShopeeExpanded(!shopeeExpanded),
+      children: [
+        {
+          id: 'shopee-handovers',
+          label: 'Handovers',
+          href: '/shopee/handovers',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          ),
+        },
+        {
+          id: 'shopee-parcels',
+          label: 'Parcels',
+          href: '/shopee/parcels',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+          ),
+        },
+      ]
+    }
   ] as const;
 
   const bottomMenuItems = [
@@ -78,10 +159,10 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
         <div className="flex items-center justify-between h-16 px-6 border-b border-slate-200 dark:border-slate-700">
           <Link href="/" className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">D</span>
+              <span className="text-white font-bold text-sm">A</span>
             </div>
             <span className="text-lg font-semibold text-slate-900 dark:text-white">
-              Dashboard
+              Audit App
             </span>
           </Link>
           {onToggle && (
@@ -96,49 +177,100 @@ export default function Sidebar({ isOpen = true, onToggle }: SidebarProps) {
           )}
         </div>
 
-        {/* User Profile Section */}
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-medium text-sm">JD</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                John Doe
-              </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 truncate">
-                john@example.com
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Navigation Menu */}
-        <nav className="flex-1 px-4 py-6 space-y-2">
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           {menuItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
-                  isActive
-                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 shadow-sm'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <div className="flex items-center space-x-3">
-                  <div className={`${
-                    isActive
-                      ? 'text-blue-600 dark:text-blue-400'
-                      : 'text-slate-500 dark:text-slate-400'
-                  }`}>
-                    {item.icon}
-                  </div>
-                  <span>{item.label}</span>
+            if (item.type === 'dropdown') {
+              const isAnyChildActive = item.children?.some(child => pathname === child.href);
+              return (
+                <div key={item.id}>
+                  <button
+                    onClick={item.onToggle}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      isAnyChildActive
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className={`${
+                        isAnyChildActive
+                          ? 'text-blue-600 dark:text-blue-400'
+                          : 'text-slate-500 dark:text-slate-400'
+                      }`}>
+                        {item.icon}
+                      </div>
+                      <span>{item.label}</span>
+                    </div>
+                    <svg 
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        item.expanded ? 'transform rotate-180' : ''
+                      } ${
+                        isAnyChildActive
+                          ? 'text-blue-600 dark:text-blue-400'
+                          : 'text-slate-500 dark:text-slate-400'
+                      }`} 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {item.expanded && item.children && (
+                    <div className="ml-4 mt-2 space-y-1">
+                      {item.children.map((child) => {
+                        const isActive = pathname === child.href;
+                        return (
+                          <Link
+                            key={child.id}
+                            href={child.href}
+                            className={`w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                              isActive
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 shadow-sm'
+                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                            }`}
+                          >
+                            <div className={`${
+                              isActive
+                                ? 'text-blue-600 dark:text-blue-400'
+                                : 'text-slate-500 dark:text-slate-400'
+                            }`}>
+                              {child.icon}
+                            </div>
+                            <span>{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </Link>
-            );
+              );
+            } else {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className={`w-full flex items-center justify-between px-3 py-2 text-sm font-medium rounded-xl transition-all duration-200 ${
+                    isActive
+                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className={`${
+                      isActive
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-slate-500 dark:text-slate-400'
+                    }`}>
+                      {item.icon}
+                    </div>
+                    <span>{item.label}</span>
+                  </div>
+                </Link>
+              );
+            }
           })}
         </nav>
 

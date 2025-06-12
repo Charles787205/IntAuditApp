@@ -2,14 +2,44 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const isDev = !app.isPackaged;
 
-// Set up DATABASE_URL for production builds
+// Fix for GLib-GObject errors and shared memory issues on Linux
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('--no-sandbox');
+  app.commandLine.appendSwitch('--disable-gpu-sandbox');
+  app.commandLine.appendSwitch('--disable-software-rasterizer');
+  app.commandLine.appendSwitch('--disable-background-timer-throttling');
+  app.commandLine.appendSwitch('--disable-backgrounding-occluded-windows');
+  app.commandLine.appendSwitch('--disable-renderer-backgrounding');
+  app.commandLine.appendSwitch('--disable-features=TranslateUI');
+  app.commandLine.appendSwitch('--disable-extensions');
+  // Additional fixes for shared memory issues
+  app.commandLine.appendSwitch('--disable-dev-shm-usage');
+  app.commandLine.appendSwitch('--disable-gpu');
+  app.commandLine.appendSwitch('--no-first-run');
+  app.commandLine.appendSwitch('--disable-default-apps');
+  app.commandLine.appendSwitch('--disable-web-security');
+  // Even more comprehensive Linux fixes
+  app.commandLine.appendSwitch('--disable-setuid-sandbox');
+  app.commandLine.appendSwitch('--disable-accelerated-2d-canvas');
+  app.commandLine.appendSwitch('--disable-accelerated-video-decode');
+  app.commandLine.appendSwitch('--disable-background-networking');
+  app.commandLine.appendSwitch('--disable-component-update');
+  app.commandLine.appendSwitch('--disable-ipc-flooding-protection');
+  app.commandLine.appendSwitch('--memory-pressure-off');
+  app.commandLine.appendSwitch('--max_old_space_size=4096');
+}
+
+// Set up DATABASE_URL for both development and production builds
 if (!isDev) {
   // In production, set the database path relative to the app resources
   const dbPath = path.join(process.resourcesPath, 'prisma', 'intdb.db');
   process.env.DATABASE_URL = `file:${dbPath}`;
+  console.log('Production DATABASE_URL:', process.env.DATABASE_URL);
 } else {
-  // In development, use the local database
-  process.env.DATABASE_URL = 'file:./prisma/intdb.db';
+  // In development, use the local database with absolute path
+  const dbPath = path.join(__dirname, '..', 'prisma', 'intdb.db');
+  process.env.DATABASE_URL = `file:${dbPath}`;
+  console.log('Development DATABASE_URL:', process.env.DATABASE_URL);
 }
 
 let nextApp;
@@ -21,7 +51,9 @@ const createWindow = () => {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      enableRemoteModule: false
+      enableRemoteModule: false,
+      // Additional security settings for Linux
+      sandbox: process.platform !== 'linux'
     },
     titleBarStyle: 'default',
     show: false

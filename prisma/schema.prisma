@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "./prisma/intdb.db"
+  url      = env("DATABASE_URL")
 }
 
 enum Direction {
@@ -21,11 +21,17 @@ enum HandoverStatus {
   done
 }
 
+enum HandoverType {
+  lazada
+  shopee
+}
+
 model Handover {
   id            Int           @id @default(autoincrement())
   handover_date DateTime
   quantity      Int
   status        HandoverStatus @default(pending) // Use HandoverStatus enum with default "pending"
+  type          HandoverType  @default(lazada) // Add type field with default "lazada"
   date_added    DateTime      @default(now())
   platform      String?       // shopee or lazada
   file_name     String?       // name of the uploaded XLSX file
@@ -59,4 +65,16 @@ model ParcelEventLog {
   from_status     String
   new_status      String
   created_at      DateTime @default(now())
+}
+
+model Courier {
+  id         Int     @id @default(autoincrement())
+  name       String
+  isLazada   Boolean @default(false)
+  isShopee   Boolean @default(false)
+  lazRate    Float?  // Nullable in case not applicable
+  shopeeRate Float?  // Nullable in case not applicable
+  type       String  // 2w/3w/4w
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 }

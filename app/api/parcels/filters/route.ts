@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@generated/prisma';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
@@ -29,12 +27,27 @@ export async function GET() {
       distinct: ['updated_by']
     });
 
+    // Get all handovers for filtering
+    const handovers = await prisma.handover.findMany({
+      select: {
+        id: true,
+        file_name: true,
+        handover_date: true,
+        status: true,
+        platform: true
+      },
+      orderBy: {
+        handover_date: 'desc'
+      }
+    });
+
     return NextResponse.json({
       success: true,
       data: {
         statuses: statuses.map(s => s.status).filter(Boolean).sort(),
         directions: directions.map(d => d.direction).filter(Boolean).sort(),
-        updatedBy: updatedByList.map(u => u.updated_by).filter(Boolean).sort()
+        updatedBy: updatedByList.map(u => u.updated_by).filter(Boolean).sort(),
+        handovers: handovers
       }
     });
 

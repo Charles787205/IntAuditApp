@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import UploadUpdates from '@/app/components/handover/UploadUpdates';
+import UploadUpdates from '@/components/handover/UploadUpdates';
+import ParcelEventLogsModal from '@/components/ParcelEventLogsModal';
 
 interface Handover {
   id: number;
@@ -47,6 +48,8 @@ export default function HandoverDetailPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedParcelTrackingNumber, setSelectedParcelTrackingNumber] = useState<string>('');
+  const [showEventLogsModal, setShowEventLogsModal] = useState(false);
   
   // Applied filters (what's actually being used for filtering)
   const [statusFilters, setStatusFilters] = useState<string[]>([]);
@@ -384,6 +387,16 @@ export default function HandoverDetailPage() {
     setTempUpdatedByFilters([]);
   };
 
+  const handleParcelClick = (trackingNumber: string) => {
+    setSelectedParcelTrackingNumber(trackingNumber);
+    setShowEventLogsModal(true);
+  };
+
+  const closeEventLogsModal = () => {
+    setShowEventLogsModal(false);
+    setSelectedParcelTrackingNumber('');
+  };
+
   return (
     <div className="min-h-full bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-6 space-y-6">
       {/* Header */}
@@ -669,6 +682,9 @@ export default function HandoverDetailPage() {
                 <option value={25}>25</option>
                 <option value={50}>50</option>
                 <option value={100}>100</option>
+                <option value={250}>250</option>
+                <option value={500}>500</option>
+                <option value={1000}>1000</option>
               </select>
             </label>
           </div>
@@ -713,9 +729,12 @@ export default function HandoverDetailPage() {
               {parcels.map((parcel,index) => (
                 <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-700/30">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-slate-900 dark:text-white">
+                    <button
+                      onClick={() => handleParcelClick(parcel.tracking_number)}
+                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer"
+                    >
                       {parcel.tracking_number}
-                    </div>
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-slate-900 dark:text-white">
@@ -759,6 +778,13 @@ export default function HandoverDetailPage() {
         onClose={() => setShowUploadModal(false)}
         handoverId={handover?.id}
         onSuccess={handleUploadSuccess}
+      />
+
+      {/* Event Logs Modal */}
+      <ParcelEventLogsModal
+        isOpen={showEventLogsModal}
+        onClose={closeEventLogsModal}
+        trackingNumber={selectedParcelTrackingNumber}
       />
     </div>
   );

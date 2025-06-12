@@ -1,28 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from "@generated/prisma";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { handoverData, extractedData } = body;
 
-    // Create handover with associated parcels
-    const newHandover = await prisma.handover.create({
-      data: {
-        handover_date: new Date(handoverData.date),
-        quantity: extractedData?.length || 0,
-        file_name: handoverData.fileName,
-        platform: 'manual',
-        parcels: {
-          create: extractedData?.map((item: any) => ({
+    // Filter out parcels with tracking numbers that already exist in the database
+    let validParcels = [];
+    let duplicateCount = 0;
+    let internalDuplicateCount = 0;
+    
+    if (extractedData && extractedData.length > 0) {
+      // First, remove duplicates within the uploaded data itself
+      const seenInUpload = new Set();
+      const uniqueExtractedData = [];
+      
+      for (const item of extractedData) {
+        if (!seenInUpload.has(item.trackingNo)) {
+          seenInUpload.add(item.trackingNo);
+          uniqueExtractedData.push(item);
+        } else {
+          internalDuplicateCount++;
+        }
+      }
+      
+      // Get all existing tracking numbers in one query for efficiency
+      const trackingNumbers = uniqueExtractedData.map(item => item.trackingNo);
+      const existingParcels = await prisma.parcel.findMany({
+        where: {
+          tracking_number: {
+            in: trackingNumbers
+          }
+        },
+        select: {
+          tracking_number: true
+        }
+      });
+      
+      const existingTrackingNumbers = new Set(existingParcels.map(p => p.tracking_number));
+      
+      for (const item of uniqueExtractedData) {
+        if (!existingTrackingNumbers.has(item.trackingNo)) {
+          validParcels.push({
             tracking_number: item.trackingNo,
             port_code: item.portCode,
             package_type: item.packageType,
             updated_by: 'system',
             status: 'pending'
-          })) || []
+          });
+        } else {
+          duplicateCount++;
+        }
+      }
+    }
+
+    // Create handover with only valid (non-duplicate) parcels and include type
+    const newHandover = await prisma.handover.create({
+      data: {
+        handover_date: new Date(handoverData.date),
+        quantity: validParcels.length, // Use actual count of valid parcels
+        file_name: handoverData.fileName,
+        platform: 'manual',
+        type: handoverData.type || 'lazada', // Add type field with default
+        parcels: {
+          create: validParcels
         }
       },
       include: {
@@ -30,9 +72,17 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Return success with information about duplicates
+    const totalDuplicates = duplicateCount + internalDuplicateCount;
     return NextResponse.json({ 
       success: true, 
-      handover: newHandover 
+      handover: newHandover,
+      duplicatesSkipped: totalDuplicates,
+      internalDuplicates: internalDuplicateCount,
+      databaseDuplicates: duplicateCount,
+      message: totalDuplicates > 0 
+        ? `Handover created successfully. ${totalDuplicates} duplicate tracking numbers were skipped (${internalDuplicateCount} within upload, ${duplicateCount} already in database).`
+        : 'Handover created successfully.'
     });
 
   } catch (error) {
