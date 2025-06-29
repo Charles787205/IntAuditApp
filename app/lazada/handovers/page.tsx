@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import CreateNewHandover from '../components/handover/CreateNewHandover';
-import UploadUpdates from '@components/handover/UploadUpdates';
-import PrintHandoverReport from '@components/handover/PrintHandoverReport';
+import CreateNewHandover from '@/components/lazada/handover/CreateNewHandover';
+import UploadUpdates from '@/components/lazada/handover/UploadUpdates';
+import PrintHandoverReport from '@/components/lazada/handover/PrintHandoverReport';
 
 interface HandoverData {
   trackingNo: string;
@@ -261,34 +261,33 @@ export default function HandoversPage() {
     setShowUploadModal(true);
   };
 
-  const handleUploadSuccess = () => {
-    // Refresh handovers list
-    const fetchHandovers = async () => {
-      try {
-        const response = await fetch('/api/handovers');
-        const data = await response.json();
+  // Extract fetchHandovers as a separate function
+  const fetchHandovers = async () => {
+    try {
+      const response = await fetch('/api/lazada/handovers');
+      const data = await response.json();
+      
+      if (data.success && data.handovers) {
+        const transformedHandovers = data.handovers.map((dbHandover: any) => ({
+          id: dbHandover.id,
+          date: dbHandover.handover_date.split('T')[0],
+          handoverFrom: 'System',
+          handoverTo: 'TBD',
+          status: dbHandover.status,
+          notes: `File: ${dbHandover.file_name} - ${dbHandover.quantity} records`,
+          createdAt: dbHandover.date_added.split('T')[0],
+          fileName: dbHandover.file_name,
+          parcelCount: dbHandover.parcels?.length || 0
+        }));
         
-        if (data.success && data.handovers) {
-          const transformedHandovers = data.handovers.map((dbHandover: any) => ({
-            id: dbHandover.id,
-            date: dbHandover.handover_date.split('T')[0],
-            handoverFrom: 'System',
-            handoverTo: 'TBD',
-            status: dbHandover.status, // Use actual status from database
-            notes: `File: ${dbHandover.file_name} - ${dbHandover.quantity} records`,
-            createdAt: dbHandover.date_added.split('T')[0],
-            fileName: dbHandover.file_name,
-            // Only keep the count of parcels, not the full data
-            parcelCount: dbHandover.parcels?.length || 0
-          }));
-          
-          setHandovers(transformedHandovers);
-        }
-      } catch (error) {
-        console.error('Error refreshing handovers:', error);
+        setHandovers(transformedHandovers);
       }
-    };
-    
+    } catch (error) {
+      console.error('Error refreshing handovers:', error);
+    }
+  };
+
+  const handleUploadSuccess = () => {
     fetchHandovers();
   };
 
@@ -626,15 +625,17 @@ export default function HandoversPage() {
       )}
 
       {/* Upload Updates Modal - Global or Specific */}
-      <UploadUpdates
-        isOpen={showUploadModal}
-        onClose={() => {
-          setShowUploadModal(false);
-          setSelectedHandoverForUpload(null);
-        }}
-        handoverId={selectedHandoverForUpload?.id} // Pass undefined for global uploads
-        onSuccess={handleUploadSuccess}
-      />
+      {showUploadModal && selectedHandoverForUpload && (
+        <UploadUpdates
+          isOpen={showUploadModal}
+          handoverId={selectedHandoverForUpload.id}
+          onClose={() => {
+            setShowUploadModal(false);
+            setSelectedHandoverForUpload(null);
+          }}
+          onSuccess={() => fetchHandovers()}
+        />
+      )}
     </div>
   );
 }

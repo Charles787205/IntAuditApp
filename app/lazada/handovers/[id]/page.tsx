@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import UploadUpdates from '@/components/handover/UploadUpdates';
+import UploadUpdates from '@/components/lazada/handover/UploadUpdates';
 import ParcelEventLogsModal from '@/components/ParcelEventLogsModal';
 
 interface Handover {
@@ -773,12 +773,14 @@ export default function HandoverDetailPage() {
       </div>
 
       {/* Upload Updates Modal */}
-      <UploadUpdates
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        handoverId={handover?.id}
-        onSuccess={handleUploadSuccess}
-      />
+      {showUploadModal && (
+        <UploadUpdates
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          handoverId={handover?.id}
+          onSuccess={() => fetchHandoverDetails()}
+        />
+      )}
 
       {/* Event Logs Modal */}
       <ParcelEventLogsModal

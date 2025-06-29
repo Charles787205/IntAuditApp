@@ -5,7 +5,10 @@
   "main": "electron/main.js",
   "homepage": "./",
   "description": "IntAudit Desktop Application for parcel tracking and handover management",
-  "author": "Your Company",
+  "author": {
+    "name": "Charles",
+    "email": "joviancharles1210@gmail.com"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -15,7 +18,12 @@
     "electron-dev": "concurrently \"npm run dev\" \"npm run electron\"",
     "electron-prod": "npm run build && electron .",
     "build-electron": "next build && electron-builder",
-    "dist": "npm run build && electron-builder --publish=never"
+    "prebuild": "npx prisma generate && npx prisma db push",
+    "dist": "npm run prebuild && npm run build && electron-builder --publish=never",
+    "dist-win": "npm run prebuild && npm run build && electron-builder --win --publish=never",
+    "dist-mac": "npm run prebuild && npm run build && electron-builder --mac --publish=never",
+    "dist-linux": "npm run prebuild && npm run build && electron-builder --linux --publish=never",
+    "dist-all": "npm run prebuild && npm run build && electron-builder --win --mac --linux --publish=never"
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
@@ -65,18 +73,45 @@
     ],
     "extraResources": [
       {
-        "from": "prisma/intdb.db",
-        "to": "prisma/intdb.db"
+        "from": "prisma/intdb.sqlite",
+        "to": "prisma/intdb.sqlite"
       }
     ],
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "target": "dmg"
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "icon": "public/icon.ico"
     },
     "linux": {
-      "target": "AppImage"
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }

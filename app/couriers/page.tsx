@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import CourierTripsModal from '../components/CourierTripsModal';
+import AnalyzeTripsModal from '../components/AnalyzeTripsModal';
+import AnalyzeWeeklySummaryModal from '../components/AnalyzeWeeklySummaryModal';
 import ShopeeTripsModal from '../components/ShopeeTripsModal';
 
 interface Courier {
@@ -22,7 +23,8 @@ export default function CouriersPage() {
   const [couriers, setCouriers] = useState<Courier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showTripsModal, setShowTripsModal] = useState(false);
+  const [showAnalyzeTripsModal, setShowAnalyzeTripsModal] = useState(false);
+  const [showAnalyzeWeeklySummaryModal, setShowAnalyzeWeeklySummaryModal] = useState(false);
   const [showShopeeTripsModal, setShowShopeeTripsModal] = useState(false);
   const [editingCourier, setEditingCourier] = useState<Courier | null>(null);
   const [formData, setFormData] = useState({
@@ -207,10 +209,16 @@ export default function CouriersPage() {
             🛒 Shopee Trips
           </button>
           <button 
-            onClick={() => setShowTripsModal(true)}
+            onClick={() => setShowAnalyzeTripsModal(true)}
             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             📊 Analyze Trips
+          </button>
+          <button 
+            onClick={() => setShowAnalyzeWeeklySummaryModal(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            📈 Weekly Summary
           </button>
           <button 
             onClick={() => setShowCreateModal(true)}
@@ -393,10 +401,16 @@ export default function CouriersPage() {
         </div>
       </div>
 
-      {/* Courier Trips Modal */}
-      <CourierTripsModal 
-        isOpen={showTripsModal}
-        onClose={() => setShowTripsModal(false)}
+      {/* Analyze Trips Modal */}
+      <AnalyzeTripsModal 
+        isOpen={showAnalyzeTripsModal}
+        onClose={() => setShowAnalyzeTripsModal(false)}
+      />
+
+      {/* Analyze Weekly Summary Modal */}
+      <AnalyzeWeeklySummaryModal 
+        isOpen={showAnalyzeWeeklySummaryModal}
+        onClose={() => setShowAnalyzeWeeklySummaryModal(false)}
       />
 
       {/* Shopee Trips Modal */}

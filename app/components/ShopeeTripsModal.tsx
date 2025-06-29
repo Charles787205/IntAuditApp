@@ -248,16 +248,22 @@ const ShopeeTripsModal: React.FC<ShopeeTripsModalProps> = ({ isOpen, onClose }) 
     const foundMissingDrivers: {name: string, estimatedType: string}[] = [];
 
     trips.forEach(trip => {
+      // Skip trips with 0 orders - these shouldn't be included
+      if (trip.numberOfOrders === 0 && trip.numberOfAssignedOrders === 0) {
+        console.log(`Skipping trip with 0 orders: ${trip.driver}`);
+        return;
+      }
+
       // Use just the driver name (without ID) as the key for proper aggregation
       const cleanDriverName = trip.driver.replace(/\[\d+\]\s*/, '').trim();
       const key = cleanDriverName;
       
-      // Find driver in database
+      // Find driver in database - but don't filter out if not found
       const dbCourier = findCourierByName(cleanDriverName);
       const vehicleType = dbCourier?.type || estimateVehicleType(cleanDriverName);
       const inDatabase = !!dbCourier;
       
-      // Track missing drivers
+      // Track missing drivers for notification
       if (!inDatabase) {
         const existingMissing = foundMissingDrivers.find(m => m.name === cleanDriverName);
         if (!existingMissing) {
@@ -294,8 +300,13 @@ const ShopeeTripsModal: React.FC<ShopeeTripsModalProps> = ({ isOpen, onClose }) 
 
     setMissingDrivers(foundMissingDrivers);
 
+    // Convert to array and filter out any remaining entries with 0 totals
+    const summaries = Array.from(driverMap.values()).filter(summary => 
+      summary.totalOrders > 0 || summary.totalAssignedOrders > 0
+    );
+
     // Sort by vehicle type, then by driver name
-    return Array.from(driverMap.values()).sort((a, b) => {
+    return summaries.sort((a, b) => {
       // First sort by vehicle type (4w first, then 2w)
       const typeOrder = { '4w': 0, '3w': 1, '2w': 2 };
       const aTypeOrder = typeOrder[a.vehicleType as keyof typeof typeOrder] ?? 3;
@@ -451,6 +462,90 @@ const ShopeeTripsModal: React.FC<ShopeeTripsModalProps> = ({ isOpen, onClose }) 
     }
   };
 
+  const copyDriverNamesWithTypes = async () => {
+    // Group by vehicle type for organized copying
+    const fourWheelers = driverSummaries.filter(d => d.vehicleType === '4w');
+    const threeWheelers = driverSummaries.filter(d => d.vehicleType === '3w');
+    const twoWheelers = driverSummaries.filter(d => d.vehicleType === '2w');
+    
+    let driverNamesText = '';
+    
+    // Add 4-wheelers with type
+    if (fourWheelers.length > 0) {
+      driverNamesText += fourWheelers.map(summary => `${summary.driver} (4W)`).join('\n');
+    }
+    
+    // Add spacing between 4w and 3w/2w
+    if (fourWheelers.length > 0 && (threeWheelers.length > 0 || twoWheelers.length > 0)) {
+      driverNamesText += '\n\n';
+    }
+    
+    // Add 3-wheelers with type
+    if (threeWheelers.length > 0) {
+      driverNamesText += threeWheelers.map(summary => `${summary.driver} (3W)`).join('\n');
+    }
+    
+    // Add spacing between 3w and 2w
+    if (threeWheelers.length > 0 && twoWheelers.length > 0) {
+      driverNamesText += '\n\n';
+    }
+    
+    // Add 2-wheelers with type
+    if (twoWheelers.length > 0) {
+      driverNamesText += twoWheelers.map(summary => `${summary.driver} (2W)`).join('\n');
+    }
+    
+    try {
+      await navigator.clipboard.writeText(driverNamesText);
+      alert('Driver names with vehicle types copied to clipboard with spacing!');
+    } catch (error) {
+      console.error('Failed to copy driver names:', error);
+      alert('Failed to copy driver names to clipboard');
+    }
+  };
+
+  const copyVehicleTypes = async () => {
+    // Group by vehicle type for organized copying
+    const fourWheelers = driverSummaries.filter(d => d.vehicleType === '4w');
+    const threeWheelers = driverSummaries.filter(d => d.vehicleType === '3w');
+    const twoWheelers = driverSummaries.filter(d => d.vehicleType === '2w');
+    
+    let vehicleTypesText = '';
+    
+    // Add 4W types
+    if (fourWheelers.length > 0) {
+      vehicleTypesText += fourWheelers.map(() => '4W').join('\n');
+    }
+    
+    // Add spacing between 4w and 3w/2w
+    if (fourWheelers.length > 0 && (threeWheelers.length > 0 || twoWheelers.length > 0)) {
+      vehicleTypesText += '\n\n';
+    }
+    
+    // Add 3W types
+    if (threeWheelers.length > 0) {
+      vehicleTypesText += threeWheelers.map(() => '3W').join('\n');
+    }
+    
+    // Add spacing between 3w and 2w
+    if (threeWheelers.length > 0 && twoWheelers.length > 0) {
+      vehicleTypesText += '\n\n';
+    }
+    
+    // Add 2W types
+    if (twoWheelers.length > 0) {
+      vehicleTypesText += twoWheelers.map(() => '2W').join('\n');
+    }
+    
+    try {
+      await navigator.clipboard.writeText(vehicleTypesText);
+      alert('Vehicle types copied to clipboard with spacing!');
+    } catch (error) {
+      console.error('Failed to copy vehicle types:', error);
+      alert('Failed to copy vehicle types to clipboard');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -514,10 +609,22 @@ const ShopeeTripsModal: React.FC<ShopeeTripsModalProps> = ({ isOpen, onClose }) 
                     📋 Copy Names
                   </button>
                   <button
+                    onClick={copyDriverNamesWithTypes}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors"
+                  >
+                    🏷️ Copy Names + Types
+                  </button>
+                  <button
                     onClick={copyTotalOrders}
                     className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md transition-colors"
                   >
                     📦 Copy Orders
+                  </button>
+                  <button
+                    onClick={copyVehicleTypes}
+                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md transition-colors"
+                  >
+                    🚚 Copy Vehicle Types
                   </button>
                   <button
                     onClick={handleReset}

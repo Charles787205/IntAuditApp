@@ -181,9 +181,15 @@ const CourierTripsModal: React.FC<CourierTripsModalProps> = ({ isOpen, onClose }
     const foundMissingCouriers: {name: string, estimatedType: string}[] = [];
 
     trips.forEach(trip => {
+      // Skip trips with 0 total parcels - these shouldn't be included
+      if (trip.total === 0) {
+        console.log(`Skipping trip with 0 parcels: ${trip.courier}`);
+        return;
+      }
+
       const key = `${trip.courier}-${trip.courierId}`;
       
-      // Find courier in database
+      // Find courier in database - but don't filter out if not found
       const dbCourier = databaseCouriers.find(c => 
         c.name.toUpperCase().trim() === trip.courier.toUpperCase().trim()
       );
@@ -191,7 +197,7 @@ const CourierTripsModal: React.FC<CourierTripsModalProps> = ({ isOpen, onClose }
       const vehicleType = dbCourier?.type || estimateVehicleType(trip.courier);
       const inDatabase = !!dbCourier;
       
-      // Track missing couriers
+      // Track missing couriers for notification
       if (!inDatabase) {
         const existingMissing = foundMissingCouriers.find(m => m.name === trip.courier);
         if (!existingMissing) {
@@ -226,8 +232,13 @@ const CourierTripsModal: React.FC<CourierTripsModalProps> = ({ isOpen, onClose }
 
     setMissingCouriers(foundMissingCouriers);
 
+    // Convert to array and filter out any remaining entries with 0 totals
+    const summaries = Array.from(courierMap.values()).filter(summary => 
+      summary.totalParcels > 0
+    );
+
     // Sort by vehicle type, then by courier name
-    return Array.from(courierMap.values()).sort((a, b) => {
+    return summaries.sort((a, b) => {
       // First sort by vehicle type (4w first, then 2w)
       const typeOrder = { '4w': 0, '3w': 1, '2w': 2 };
       const aTypeOrder = typeOrder[a.vehicleType as keyof typeof typeOrder] ?? 3;
@@ -343,6 +354,90 @@ const CourierTripsModal: React.FC<CourierTripsModalProps> = ({ isOpen, onClose }
     }
   };
 
+  const copyCourierNamesWithTypes = async () => {
+    // Group by vehicle type for organized copying
+    const fourWheelers = courierSummaries.filter(c => c.vehicleType === '4w');
+    const threeWheelers = courierSummaries.filter(c => c.vehicleType === '3w');
+    const twoWheelers = courierSummaries.filter(c => c.vehicleType === '2w');
+    
+    let courierNamesText = '';
+    
+    // Add 4-wheelers with type
+    if (fourWheelers.length > 0) {
+      courierNamesText += fourWheelers.map(summary => `${summary.courier} (4W)`).join('\n');
+    }
+    
+    // Add spacing between 4w and 3w/2w
+    if (fourWheelers.length > 0 && (threeWheelers.length > 0 || twoWheelers.length > 0)) {
+      courierNamesText += '\n\n';
+    }
+    
+    // Add 3-wheelers with type
+    if (threeWheelers.length > 0) {
+      courierNamesText += threeWheelers.map(summary => `${summary.courier} (3W)`).join('\n');
+    }
+    
+    // Add spacing between 3w and 2w
+    if (threeWheelers.length > 0 && twoWheelers.length > 0) {
+      courierNamesText += '\n\n';
+    }
+    
+    // Add 2-wheelers with type
+    if (twoWheelers.length > 0) {
+      courierNamesText += twoWheelers.map(summary => `${summary.courier} (2W)`).join('\n');
+    }
+    
+    try {
+      await navigator.clipboard.writeText(courierNamesText);
+      alert('Courier names with vehicle types copied to clipboard with spacing!');
+    } catch (error) {
+      console.error('Failed to copy courier names:', error);
+      alert('Failed to copy courier names to clipboard');
+    }
+  };
+
+  const copyVehicleTypes = async () => {
+    // Group by vehicle type for organized copying
+    const fourWheelers = courierSummaries.filter(c => c.vehicleType === '4w');
+    const threeWheelers = courierSummaries.filter(c => c.vehicleType === '3w');
+    const twoWheelers = courierSummaries.filter(c => c.vehicleType === '2w');
+    
+    let vehicleTypesText = '';
+    
+    // Add 4W types
+    if (fourWheelers.length > 0) {
+      vehicleTypesText += fourWheelers.map(() => '4W').join('\n');
+    }
+    
+    // Add spacing between 4w and 3w/2w
+    if (fourWheelers.length > 0 && (threeWheelers.length > 0 || twoWheelers.length > 0)) {
+      vehicleTypesText += '\n\n';
+    }
+    
+    // Add 3W types
+    if (threeWheelers.length > 0) {
+      vehicleTypesText += threeWheelers.map(() => '3W').join('\n');
+    }
+    
+    // Add spacing between 3w and 2w
+    if (threeWheelers.length > 0 && twoWheelers.length > 0) {
+      vehicleTypesText += '\n\n';
+    }
+    
+    // Add 2W types
+    if (twoWheelers.length > 0) {
+      vehicleTypesText += twoWheelers.map(() => '2W').join('\n');
+    }
+    
+    try {
+      await navigator.clipboard.writeText(vehicleTypesText);
+      alert('Vehicle types copied to clipboard with spacing!');
+    } catch (error) {
+      console.error('Failed to copy vehicle types:', error);
+      alert('Failed to copy vehicle types to clipboard');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -406,10 +501,22 @@ const CourierTripsModal: React.FC<CourierTripsModalProps> = ({ isOpen, onClose }
                     📋 Copy Names
                   </button>
                   <button
+                    onClick={copyCourierNamesWithTypes}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors"
+                  >
+                    🏷️ Copy Names + Types
+                  </button>
+                  <button
                     onClick={copyTotalParcels}
                     className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md transition-colors"
                   >
                     📦 Copy Totals
+                  </button>
+                  <button
+                    onClick={copyVehicleTypes}
+                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md transition-colors"
+                  >
+                    🚚 Copy Vehicle Types
                   </button>
                   <button
                     onClick={handleReset}

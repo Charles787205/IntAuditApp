@@ -164,3 +164,53 @@ export async function PATCH(
     );
   }
 }
+
+// Add DELETE method to delete handover
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const handoverId = parseInt(id);
+
+    // Check if handover exists
+    const handover = await prisma.handover.findUnique({
+      where: { id: handoverId },
+      include: {
+        _count: {
+          select: { parcels: true }
+        }
+      }
+    });
+
+    if (!handover) {
+      return NextResponse.json(
+        { success: false, error: 'Handover not found' },
+        { status: 404 }
+      );
+    }
+
+    // Delete all related parcels first (cascade delete)
+    await prisma.parcel.deleteMany({
+      where: { handover_id: handoverId }
+    });
+
+    // Delete the handover
+    await prisma.handover.delete({
+      where: { id: handoverId }
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Handover and ${handover._count.parcels} related parcels deleted successfully` 
+    });
+
+  } catch (error) {
+    console.error('Error deleting handover:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete handover' },
+      { status: 500 }
+    );
+  }
+}

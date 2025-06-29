@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     const { handoverData, extractedData } = body;
 
     // Filter out parcels with tracking numbers that already exist in the database
-    let validParcels = [];
+    const validParcels = [];
     let duplicateCount = 0;
     let internalDuplicateCount = 0;
     

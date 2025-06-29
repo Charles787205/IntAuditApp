@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import AnalyzeTripsModal from './components/AnalyzeTripsModal';
+import AnalyzeWeeklySummaryModal from './components/AnalyzeWeeklySummaryModal';
 
 interface DashboardStats {
   totalHandovers: number;
@@ -35,6 +37,8 @@ export default function Dashboard() {
     parcelsByStatus: []
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [showAnalyzeTripsModal, setShowAnalyzeTripsModal] = useState(false);
+  const [showAnalyzeWeeklySummaryModal, setShowAnalyzeWeeklySummaryModal] = useState(false);
 
   useEffect(() => {
     fetchDashboardStats();
@@ -277,10 +281,10 @@ export default function Dashboard() {
                   Parcel Status Overview
                 </h3>
                 <Link
-                  href="/parcels"
+                  href="/shopee/parcels"
                   className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  View all parcels
+                  View Shopee parcels
                 </Link>
               </div>
               <div className="space-y-4">
@@ -402,7 +406,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
             Quick Actions
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             <Link
               href="/handovers"
               className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border border-slate-200 dark:border-slate-700 text-left group"
@@ -428,7 +432,7 @@ export default function Dashboard() {
             </Link>
 
             <Link
-              href="/parcels"
+              href="/shopee/parcels"
               className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border border-slate-200 dark:border-slate-700 text-left group"
             >
               <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -447,9 +451,57 @@ export default function Dashboard() {
                 </svg>
               </div>
               <p className="font-medium text-slate-900 dark:text-white">
-                Track Parcels
+                Track Shopee Parcels
               </p>
             </Link>
+
+            <button
+              onClick={() => setShowAnalyzeTripsModal(true)}
+              className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border border-slate-200 dark:border-slate-700 text-left group"
+            >
+              <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <svg
+                  className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+              </div>
+              <p className="font-medium text-slate-900 dark:text-white">
+                Analyze Trips
+              </p>
+            </button>
+
+            <button
+              onClick={() => setShowAnalyzeWeeklySummaryModal(true)}
+              className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border border-slate-200 dark:border-slate-700 text-left group"
+            >
+              <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/20 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <svg
+                  className="w-5 h-5 text-violet-600 dark:text-violet-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
+                  />
+                </svg>
+              </div>
+              <p className="font-medium text-slate-900 dark:text-white">
+                Weekly Summary
+              </p>
+            </button>
 
             <button
               onClick={() => window.location.reload()}
@@ -475,11 +527,11 @@ export default function Dashboard() {
               </p>
             </button>
 
-            <button
-              className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border border-slate-200 dark:border-slate-700 text-left group opacity-50 cursor-not-allowed"
-              disabled
+            <Link
+              href="/couriers"
+              className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border border-slate-200 dark:border-slate-700 text-left group"
             >
-              <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center mb-3">
+              <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <svg
                   className="w-5 h-5 text-orange-600 dark:text-orange-400"
                   fill="none"
@@ -490,22 +542,27 @@ export default function Dashboard() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                   />
                 </svg>
               </div>
               <p className="font-medium text-slate-900 dark:text-white">
-                Settings
+                Manage Couriers
               </p>
-            </button>
+            </Link>
           </div>
         </div>
+
+        {/* Analysis Modals */}
+        <AnalyzeTripsModal 
+          isOpen={showAnalyzeTripsModal}
+          onClose={() => setShowAnalyzeTripsModal(false)}
+        />
+
+        <AnalyzeWeeklySummaryModal 
+          isOpen={showAnalyzeWeeklySummaryModal}
+          onClose={() => setShowAnalyzeWeeklySummaryModal(false)}
+        />
       </div>
     </div>
   );

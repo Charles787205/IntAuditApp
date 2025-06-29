@@ -27,9 +27,9 @@ export async function GET(request: NextRequest) {
     const where: any = {};
     
     if (search) {
+      // Use SQLite-compatible case-insensitive search
       where.tracking_number = {
-        contains: search,
-        mode: 'insensitive'
+        contains: search
       };
     }
     
@@ -44,9 +44,9 @@ export async function GET(request: NextRequest) {
     }
     
     if (portCode) {
+      // Use SQLite-compatible case-insensitive search
       where.port_code = {
-        contains: portCode,
-        mode: 'insensitive'
+        contains: portCode
       };
     }
     
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     if (platform) {
       where.handover = {
-        platform: platform
+        type: platform // Use type field instead of platform for filtering
       };
     }
 

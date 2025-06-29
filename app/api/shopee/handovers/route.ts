@@ -36,33 +36,33 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { handoverData, extractedData } = body;
+    const { handoverData, trackingNumbers } = body;
 
     // Filter out parcels with tracking numbers that already exist in the database
-    let validParcels = [];
+    const validParcels = [];
     let duplicateCount = 0;
     let internalDuplicateCount = 0;
     
-    if (extractedData && extractedData.length > 0) {
+    if (trackingNumbers && trackingNumbers.length > 0) {
       // First, remove duplicates within the uploaded data itself
       const seenInUpload = new Set();
-      const uniqueExtractedData = [];
+      const uniqueTrackingNumbers = [];
       
-      for (const item of extractedData) {
-        if (!seenInUpload.has(item.trackingNo)) {
-          seenInUpload.add(item.trackingNo);
-          uniqueExtractedData.push(item);
-        } else {
+      for (const trackingNumber of trackingNumbers) {
+        const cleanTrackingNumber = trackingNumber.trim().toUpperCase(); // Ensure uppercase
+        if (cleanTrackingNumber && !seenInUpload.has(cleanTrackingNumber)) {
+          seenInUpload.add(cleanTrackingNumber);
+          uniqueTrackingNumbers.push(cleanTrackingNumber);
+        } else if (cleanTrackingNumber && seenInUpload.has(cleanTrackingNumber)) {
           internalDuplicateCount++;
         }
       }
       
       // Get all existing tracking numbers in one query for efficiency
-      const trackingNumbers = uniqueExtractedData.map(item => item.trackingNo);
       const existingParcels = await prisma.parcel.findMany({
         where: {
           tracking_number: {
-            in: trackingNumbers
+            in: uniqueTrackingNumbers
           }
         },
         select: {
@@ -72,12 +72,12 @@ export async function POST(request: NextRequest) {
       
       const existingTrackingNumbers = new Set(existingParcels.map(p => p.tracking_number));
       
-      for (const item of uniqueExtractedData) {
-        if (!existingTrackingNumbers.has(item.trackingNo)) {
+      for (const trackingNumber of uniqueTrackingNumbers) {
+        if (!existingTrackingNumbers.has(trackingNumber)) {
           validParcels.push({
-            tracking_number: item.trackingNo,
-            port_code: item.portCode,
-            package_type: item.packageType,
+            tracking_number: trackingNumber,
+            port_code: '', // Default empty for manual Shopee entries
+            package_type: '', // Default empty for manual Shopee entries
             updated_by: 'system',
             status: 'pending'
           });

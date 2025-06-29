@@ -32,12 +32,12 @@ if (process.platform === 'linux') {
 // Set up DATABASE_URL for both development and production builds
 if (!isDev) {
   // In production, set the database path relative to the app resources
-  const dbPath = path.join(process.resourcesPath, 'prisma', 'intdb.db');
+  const dbPath = path.join(process.resourcesPath, 'prisma', 'intdb.sqlite');
   process.env.DATABASE_URL = `file:${dbPath}`;
   console.log('Production DATABASE_URL:', process.env.DATABASE_URL);
 } else {
   // In development, use the local database with absolute path
-  const dbPath = path.join(__dirname, '..', 'prisma', 'intdb.db');
+  const dbPath = path.join(__dirname, '..', 'prisma', 'intdb.sqlite');
   process.env.DATABASE_URL = `file:${dbPath}`;
   console.log('Development DATABASE_URL:', process.env.DATABASE_URL);
 }

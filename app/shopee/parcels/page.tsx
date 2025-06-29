@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ParcelEventLogsModal from '@/components/ParcelEventLogsModal';
+import UpdateParcelsModal from '@/components/shopee/UpdateParcelsModal';
 
 interface Handover {
   id: number;
@@ -40,6 +41,7 @@ interface FilterState {
   direction: string;
   updatedBy: string[];
   handoverId: string;
+  portCode: string;
   pageSize: number;
   sortBy: string;
   sortOrder: string;
@@ -49,6 +51,7 @@ interface FilterOptions {
   statuses: string[];
   directions: string[];
   updatedBy: string[];
+  portCodes: string[];
   handovers: Handover[];
 }
 
@@ -64,6 +67,7 @@ function ParcelsContent() {
     statuses: [],
     directions: [],
     updatedBy: [],
+    portCodes: [],
     handovers: []
   });
   const [filters, setFilters] = useState<FilterState>({
@@ -72,6 +76,7 @@ function ParcelsContent() {
     direction: searchParams.get('direction') || '',
     updatedBy: searchParams.getAll('updatedBy') || [],
     handoverId: searchParams.get('handoverId') || '',
+    portCode: searchParams.get('portCode') || '',
     pageSize: parseInt(searchParams.get('limit') || '20'),
     sortBy: searchParams.get('sortBy') || 'updated_at',
     sortOrder: searchParams.get('sortOrder') || 'desc',
@@ -86,6 +91,12 @@ function ParcelsContent() {
   const [updatedByDropdownOpen, setUpdatedByDropdownOpen] = useState(false);
   const [selectedParcelTrackingNumber, setSelectedParcelTrackingNumber] = useState<string>('');
   const [showEventLogsModal, setShowEventLogsModal] = useState(false);
+  const [includePortCode, setIncludePortCode] = useState(false);
+  const [showUpdateParcelsModal, setShowUpdateParcelsModal] = useState(false);
+  const [selectedParcels, setSelectedParcels] = useState<string[]>([]);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [parcelToDelete, setParcelToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Refs for click outside detection
   const statusDropdownRef = useRef<HTMLDivElement>(null);
@@ -164,12 +175,13 @@ function ParcelsContent() {
       if (currentFilters.search) params.set('search', currentFilters.search);
       if (currentFilters.direction) params.set('direction', currentFilters.direction);
       if (currentFilters.handoverId) params.set('handoverId', currentFilters.handoverId);
+      if (currentFilters.portCode) params.set('port_code', currentFilters.portCode);
       
       // Handle array filters
       currentFilters.statuses.forEach(status => params.append('status', status));
       currentFilters.updatedBy.forEach(updatedBy => params.append('updatedBy', updatedBy));
 
-      const response = await fetch(`/api/parcels?${params}`);
+      const response = await fetch(`/api/shopee/parcels?${params}`);
       const data = await response.json();
 
       if (data.success) {
@@ -188,7 +200,7 @@ function ParcelsContent() {
   // Fetch filter options from database
   const fetchFilterOptions = async () => {
     try {
-      const response = await fetch('/api/parcels/filters');
+      const response = await fetch('/api/shopee/parcels/filters');
       const data = await response.json();
       
       if (data.success) {
@@ -212,12 +224,13 @@ function ParcelsContent() {
     if (newFilters.search) params.set('search', newFilters.search);
     if (newFilters.direction) params.set('direction', newFilters.direction);
     if (newFilters.handoverId) params.set('handoverId', newFilters.handoverId);
+    if (newFilters.portCode) params.set('portCode', newFilters.portCode);
     
     // Handle array filters
     newFilters.statuses.forEach(status => params.append('status', status));
     newFilters.updatedBy.forEach(updatedBy => params.append('updatedBy', updatedBy));
 
-    const newURL = `/parcels${params.toString() ? `?${params.toString()}` : ''}`;
+    const newURL = `/shopee/parcels${params.toString() ? `?${params.toString()}` : ''}`;
     router.push(newURL);
   };
 
@@ -254,6 +267,7 @@ function ParcelsContent() {
       direction: '',
       updatedBy: filterOptions.updatedBy, // Select all users by default
       handoverId: '',
+      portCode: '',
       pageSize: 20,
       sortBy: 'updated_at',
       sortOrder: 'desc',
@@ -303,23 +317,32 @@ function ParcelsContent() {
       params.set('sortBy', filters.sortBy);
       params.set('sortOrder', filters.sortOrder);
       
+      // Add platform filter for Shopee
+      params.set('platform', 'shopee');
+      
       // Apply same filters as current view
       if (filters.search) params.set('search', filters.search);
       if (filters.direction) params.set('direction', filters.direction);
       if (filters.handoverId) params.set('handoverId', filters.handoverId);
+      if (filters.portCode) params.set('port_code', filters.portCode);
       
       // Handle array filters
       filters.statuses.forEach(status => params.append('status', status));
       filters.updatedBy.forEach(updatedBy => params.append('updatedBy', updatedBy));
 
-      const response = await fetch(`/api/parcels?${params}`);
+      const response = await fetch(`/api/shopee/parcels?${params}`);
       const data = await response.json();
 
       if (data.success) {
-        const allTrackingNumbers = data.data.parcels.map((parcel: Parcel) => parcel.tracking_number).join('\n');
+        const allTrackingNumbers = data.data.parcels.map((parcel: Parcel) => {
+          if (includePortCode && parcel.port_code) {
+            return `${parcel.tracking_number}\t${parcel.port_code}`;
+          }
+          return parcel.tracking_number;
+        }).join('\n');
         await navigator.clipboard.writeText(allTrackingNumbers);
         
-        console.log(`Copied ${data.data.parcels.length} tracking numbers to clipboard`);
+        console.log(`Copied ${data.data.parcels.length} tracking numbers${includePortCode ? ' with port codes' : ''} to clipboard`);
         // You could add a toast notification here showing the actual count
       } else {
         console.error('Failed to fetch all parcels for copying:', data.error);
@@ -329,18 +352,265 @@ function ParcelsContent() {
       // Fallback for older browsers
       try {
         // If the modern API failed, try to get current page data as fallback
-        const trackingNumbers = parcels.map(parcel => parcel.tracking_number).join('\n');
+        const trackingNumbers = parcels.map(parcel => {
+          if (includePortCode && parcel.port_code) {
+            return `${parcel.tracking_number}\t${parcel.port_code}`;
+          }
+          return parcel.tracking_number;
+        }).join('\n');
         const textArea = document.createElement('textarea');
         textArea.value = trackingNumbers;
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand('copy');
         document.body.removeChild(textArea);
-        console.log(`Copied ${parcels.length} tracking numbers (current page only) to clipboard`);
+        console.log(`Copied ${parcels.length} tracking numbers${includePortCode ? ' with port codes' : ''} (current page only) to clipboard`);
       } catch (fallbackError) {
         console.error('All clipboard methods failed:', fallbackError);
       }
     }
+  };
+
+  // Copy tracking numbers grouped by days since handover date
+  const copyTrackingNumbersByDays = async () => {
+    try {
+      // Show loading state
+      console.log('Fetching all tracking numbers grouped by handover days...');
+      
+      // Build params for ALL results (same filters, but with high limit and page 1)
+      const params = new URLSearchParams();
+      params.set('page', '1');
+      params.set('limit', '10000'); // High limit to get all results
+      params.set('sortBy', filters.sortBy);
+      params.set('sortOrder', filters.sortOrder);
+      
+      // Add platform filter for Shopee
+      params.set('platform', 'shopee');
+      
+      // Apply same filters as current view
+      if (filters.search) params.set('search', filters.search);
+      if (filters.direction) params.set('direction', filters.direction);
+      if (filters.handoverId) params.set('handoverId', filters.handoverId);
+      if (filters.portCode) params.set('port_code', filters.portCode);
+      
+      // Handle array filters
+      filters.statuses.forEach(status => params.append('status', status));
+      filters.updatedBy.forEach(updatedBy => params.append('updatedBy', updatedBy));
+
+      const response = await fetch(`/api/shopee/parcels?${params}`);
+      const data = await response.json();
+
+      if (data.success) {
+        // Group parcels by days since handover date
+        const now = new Date();
+        const groupedByDays: { [key: number]: string[] } = {};
+        const noHandoverParcels: string[] = [];
+        
+        data.data.parcels.forEach((parcel: Parcel) => {
+          // If parcel has no handover, put it in a separate group
+          if (!parcel.handover) {
+            const trackingEntry = includePortCode && parcel.port_code 
+              ? `${parcel.tracking_number}\t${parcel.port_code}`
+              : parcel.tracking_number;
+            noHandoverParcels.push(trackingEntry);
+            return;
+          }
+          
+          const handoverDate = new Date(parcel.handover.handover_date);
+          const timeDiff = now.getTime() - handoverDate.getTime();
+          const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+          
+          if (!groupedByDays[daysDiff]) {
+            groupedByDays[daysDiff] = [];
+          }
+          
+          const trackingEntry = includePortCode && parcel.port_code 
+            ? `${parcel.tracking_number}\t${parcel.port_code}`
+            : parcel.tracking_number;
+          groupedByDays[daysDiff].push(trackingEntry);
+        });
+        
+        // Sort by days (descending - oldest first)
+        const sortedDays = Object.keys(groupedByDays)
+          .map(day => parseInt(day))
+          .sort((a, b) => b - a);
+        
+        // Format the output
+        let formattedOutput = '';
+        
+        // Add parcels with handovers first (sorted by days)
+        sortedDays.forEach(days => {
+          const dayLabel = days === 0 ? 'Today' : 
+                          days === 1 ? '1 day ago' : 
+                          `${days} days ago`;
+          
+          formattedOutput += `${dayLabel}\n`;
+          formattedOutput += groupedByDays[days].join('\n');
+          formattedOutput += '\n\n';
+        });
+        
+        // Add parcels without handovers at the end
+        if (noHandoverParcels.length > 0) {
+          formattedOutput += 'No Handover\n';
+          formattedOutput += noHandoverParcels.join('\n');
+          formattedOutput += '\n\n';
+        }
+        
+        await navigator.clipboard.writeText(formattedOutput.trim());
+        
+        console.log(`Copied ${data.data.parcels.length} tracking numbers grouped by handover days to clipboard`);
+        // You could add a toast notification here showing the actual count
+      } else {
+        console.error('Failed to fetch all parcels for copying:', data.error);
+      }
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      // Fallback for older browsers
+      try {
+        // If the modern API failed, try to get current page data as fallback
+        const now = new Date();
+        const groupedByDays: { [key: number]: string[] } = {};
+        const noHandoverParcels: string[] = [];
+        
+        parcels.forEach((parcel: Parcel) => {
+          if (!parcel.handover) {
+            const trackingEntry = includePortCode && parcel.port_code 
+              ? `${parcel.tracking_number}\t${parcel.port_code}`
+              : parcel.tracking_number;
+            noHandoverParcels.push(trackingEntry);
+            return;
+          }
+          
+          const handoverDate = new Date(parcel.handover.handover_date);
+          const timeDiff = now.getTime() - handoverDate.getTime();
+          const daysDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+          
+          if (!groupedByDays[daysDiff]) {
+            groupedByDays[daysDiff] = [];
+          }
+          
+          const trackingEntry = includePortCode && parcel.port_code 
+            ? `${parcel.tracking_number}\t${parcel.port_code}`
+            : parcel.tracking_number;
+          groupedByDays[daysDiff].push(trackingEntry);
+        });
+        
+        const sortedDays = Object.keys(groupedByDays)
+          .map(day => parseInt(day))
+          .sort((a, b) => b - a);
+        
+        let formattedOutput = '';
+        sortedDays.forEach(days => {
+          const dayLabel = days === 0 ? 'Today' : 
+                          days === 1 ? '1 day ago' : 
+                          `${days} days ago`;
+          
+          formattedOutput += `${dayLabel}\n`;
+          formattedOutput += groupedByDays[days].join('\n');
+          formattedOutput += '\n\n';
+        });
+        
+        if (noHandoverParcels.length > 0) {
+          formattedOutput += 'No Handover\n';
+          formattedOutput += noHandoverParcels.join('\n');
+          formattedOutput += '\n\n';
+        }
+        
+        const textArea = document.createElement('textarea');
+        textArea.value = formattedOutput.trim();
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        console.log(`Copied ${parcels.length} tracking numbers (current page only) grouped by handover days to clipboard`);
+      } catch (fallbackError) {
+        console.error('All clipboard methods failed:', fallbackError);
+      }
+    }
+  };
+
+  // Handle individual parcel selection
+  const handleParcelSelect = (trackingNumber: string, checked: boolean) => {
+    if (checked) {
+      setSelectedParcels(prev => [...prev, trackingNumber]);
+    } else {
+      setSelectedParcels(prev => prev.filter(tn => tn !== trackingNumber));
+    }
+  };
+
+  // Handle select all parcels on current page
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const currentPageTrackingNumbers = parcels.map(p => p.tracking_number);
+      setSelectedParcels(prev => {
+        const newSelected = [...prev];
+        currentPageTrackingNumbers.forEach(tn => {
+          if (!newSelected.includes(tn)) {
+            newSelected.push(tn);
+          }
+        });
+        return newSelected;
+      });
+    } else {
+      const currentPageTrackingNumbers = parcels.map(p => p.tracking_number);
+      setSelectedParcels(prev => prev.filter(tn => !currentPageTrackingNumbers.includes(tn)));
+    }
+  };
+
+  // Delete individual parcel
+  const handleDeleteParcel = (trackingNumber: string) => {
+    setParcelToDelete(trackingNumber);
+    setShowDeleteConfirmModal(true);
+  };
+
+  // Delete multiple selected parcels
+  const handleDeleteSelected = () => {
+    if (selectedParcels.length === 0) return;
+    setParcelToDelete(null); // Indicates bulk delete
+    setShowDeleteConfirmModal(true);
+  };
+
+  // Confirm delete operation
+  const confirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const trackingNumbers = parcelToDelete ? [parcelToDelete] : selectedParcels;
+      
+      const response = await fetch('/api/shopee/parcels/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ trackingNumbers }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log(`Successfully deleted ${result.deletedCount} parcel(s)`);
+        
+        // Clear selections
+        setSelectedParcels([]);
+        setParcelToDelete(null);
+        
+        // Refresh the parcels list
+        fetchParcels(currentPage, filters);
+      } else {
+        console.error('Failed to delete parcels:', result.error);
+        // You could add a toast notification here
+      }
+    } catch (error) {
+      console.error('Error deleting parcels:', error);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirmModal(false);
+    }
+  };
+
+  // Cancel delete operation
+  const cancelDelete = () => {
+    setShowDeleteConfirmModal(false);
+    setParcelToDelete(null);
   };
 
   useEffect(() => {
@@ -417,6 +687,16 @@ function ParcelsContent() {
     setSelectedParcelTrackingNumber('');
   };
 
+  const handleUpdateParcelsSuccess = () => {
+    // Refresh the parcels data after successful update
+    fetchParcels(currentPage, filters);
+    setShowUpdateParcelsModal(false);
+  };
+
+  const handleUpdateParcelsClose = () => {
+    setShowUpdateParcelsModal(false);
+  };
+
   if (isLoading && parcels.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -456,7 +736,7 @@ function ParcelsContent() {
           </button>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           {/* Search */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -585,6 +865,27 @@ function ParcelsContent() {
             </select>
           </div>
 
+          {/* Port Code */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Port Code
+            </label>
+            <select
+              value={filters.portCode}
+              onChange={(e) => handleFilterChange('portCode', e.target.value)}
+              className="w-full px-3 py-2 border border-orange-300 dark:border-slate-600 rounded-md text-sm
+                       bg-white dark:bg-slate-700 text-slate-900 dark:text-white
+                       focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            >
+              <option value="">All Port Codes</option>
+              {filterOptions.portCodes.map(portCode => (
+                <option key={portCode} value={portCode}>
+                  {portCode}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Updated By Dropdown */}
           <div className="relative" ref={updatedByDropdownRef}>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
@@ -686,19 +987,76 @@ function ParcelsContent() {
                   Showing {((pagination.currentPage - 1) * pagination.limit) + 1} - {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of {pagination.totalCount}
                 </span>
               )}
+              
+              {/* Include Port Code Checkbox */}
+              <label className="flex items-center space-x-2 text-sm text-slate-700 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={includePortCode}
+                  onChange={(e) => setIncludePortCode(e.target.checked)}
+                  className="rounded border-orange-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500 focus:ring-2"
+                />
+                <span>Include Port Code</span>
+              </label>
+              
+              {/* Update Parcels Button */}
+              <button
+                onClick={() => setShowUpdateParcelsModal(true)}
+                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md 
+                         hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+                         transition-colors"
+                title="Update parcels by pasting and executing a curl command"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Update Parcels</span>
+              </button>
+
+              {/* Delete Selected Button */}
+              {selectedParcels.length > 0 && (
+                <button
+                  onClick={handleDeleteSelected}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md 
+                           hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
+                           transition-colors"
+                  title={`Delete ${selectedParcels.length} selected parcel(s)`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <span>Delete Selected ({selectedParcels.length})</span>
+                </button>
+              )}
+              
               <button
                 onClick={copyTrackingNumbers}
                 disabled={!pagination || pagination.totalCount === 0}
                 className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-orange-600 rounded-md 
                          hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2
                          disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                title="Copy all tracking numbers from current filtered results"
+                title={`Copy tracking numbers${includePortCode ? ' with port codes (tab-separated)' : ''} from current filtered results`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
                 <span>
                   Copy Tracking Numbers ({pagination ? pagination.totalCount.toLocaleString() : '0'})
+                </span>
+              </button>
+              <button
+                onClick={copyTrackingNumbersByDays}
+                disabled={!pagination || pagination.totalCount === 0}
+                className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md 
+                         hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
+                         disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title={`Copy tracking numbers${includePortCode ? ' with port codes (tab-separated)' : ''} grouped by days since handover date`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 0h6m-6 0V9m6-2v2m0 6v2a2 2 0 01-2 2h-4a2 2 0 01-2-2v-2m6 0H8m6 0V9" />
+                </svg>
+                <span>
+                  Copy by Days ({pagination ? pagination.totalCount.toLocaleString() : '0'})
                 </span>
               </button>
             </div>
@@ -709,6 +1067,14 @@ function ParcelsContent() {
           <table className="w-full">
             <thead className="bg-orange-50 dark:bg-slate-700/50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <input
+                    type="checkbox"
+                    checked={parcels.length > 0 && parcels.every(p => selectedParcels.includes(p.tracking_number))}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="rounded border-orange-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500 focus:ring-2"
+                  />
+                </th>
                 <th 
                   className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-orange-100 dark:hover:bg-slate-600 transition-colors"
                   onClick={() => handleSort('tracking_number')}
@@ -781,6 +1147,9 @@ function ParcelsContent() {
                     {getSortIcon('updated_at')}
                   </div>
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
@@ -789,6 +1158,14 @@ function ParcelsContent() {
                   key={parcel.tracking_number} 
                   className="hover:bg-orange-50 dark:hover:bg-slate-700/30"
                 >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={selectedParcels.includes(parcel.tracking_number)}
+                      onChange={(e) => handleParcelSelect(parcel.tracking_number, e.target.checked)}
+                      className="rounded border-orange-300 dark:border-slate-600 text-orange-600 focus:ring-orange-500 focus:ring-2"
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
                       onClick={() => handleParcelClick(parcel.tracking_number)}
@@ -831,6 +1208,17 @@ function ParcelsContent() {
                     <div className="text-sm text-slate-600 dark:text-slate-400">
                       {formatDate(parcel.updated_at)}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      onClick={() => handleDeleteParcel(parcel.tracking_number)}
+                      className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors"
+                      title={`Delete parcel ${parcel.tracking_number}`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -915,6 +1303,51 @@ function ParcelsContent() {
         onClose={closeEventLogsModal}
         trackingNumber={selectedParcelTrackingNumber}
       />
+
+      {/* Update Parcels Modal */}
+      <UpdateParcelsModal
+        isOpen={showUpdateParcelsModal}
+        onClose={handleUpdateParcelsClose}
+        onSuccess={handleUpdateParcelsSuccess}
+      />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg max-w-sm w-full">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {parcelToDelete ? 'Confirm Delete Parcel' : 'Confirm Delete Parcels'}
+              </h3>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
+                {parcelToDelete 
+                  ? `Are you sure you want to delete parcel ${parcelToDelete}? This action cannot be undone.` 
+                  : `Are you sure you want to delete ${selectedParcels.length} parcels? This action cannot be undone.`}
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={cancelDelete}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 rounded-md 
+                           hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md 
+                           hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
+                           disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -207,7 +207,8 @@ const AnalyzeTripsModal: React.FC<AnalyzeTripsModalProps> = ({ isOpen, onClose }
 
     trips.forEach(trip => {
       const cleanDriverName = trip.driver.replace(/\[\d+\]\s*/, '').trim();
-      const key = `${cleanDriverName}-${trip.driverId}`;
+      // Use only the driver name as key to properly aggregate duplicate couriers
+      const key = cleanDriverName;
       
       // Find driver in database
       const dbCourier = databaseCouriers.find(c => 
@@ -241,7 +242,7 @@ const AnalyzeTripsModal: React.FC<AnalyzeTripsModalProps> = ({ isOpen, onClose }
       } else {
         driverMap.set(key, {
           driver: cleanDriverName,
-          driverId: trip.driverId,
+          driverId: trip.driverId, // Keep the first driver ID found
           tripCount: 1,
           totalParcels: trip.total,
           totalSuccessful: trip.successful,
@@ -373,6 +374,189 @@ const AnalyzeTripsModal: React.FC<AnalyzeTripsModalProps> = ({ isOpen, onClose }
     }
   };
 
+  const copyDriverNamesWithTypes = async () => {
+    // Group by vehicle type for organized copying
+    const fourWheelers = driverSummaries.filter(d => d.vehicleType === '4w');
+    const threeWheelers = driverSummaries.filter(d => d.vehicleType === '3w');
+    const twoWheelers = driverSummaries.filter(d => d.vehicleType === '2w');
+    
+    let driverNamesText = '';
+    
+    // Add 4-wheelers with type
+    if (fourWheelers.length > 0) {
+      driverNamesText += fourWheelers.map(summary => `${summary.driver} (4W)`).join('\n');
+    }
+    
+    // Add spacing between 4w and 3w/2w
+    if (fourWheelers.length > 0 && (threeWheelers.length > 0 || twoWheelers.length > 0)) {
+      driverNamesText += '\n\n';
+    }
+    
+    // Add 3-wheelers with type
+    if (threeWheelers.length > 0) {
+      driverNamesText += threeWheelers.map(summary => `${summary.driver} (3W)`).join('\n');
+    }
+    
+    // Add spacing between 3w and 2w
+    if (threeWheelers.length > 0 && twoWheelers.length > 0) {
+      driverNamesText += '\n\n';
+    }
+    
+    // Add 2-wheelers with type
+    if (twoWheelers.length > 0) {
+      driverNamesText += twoWheelers.map(summary => `${summary.driver} (2W)`).join('\n');
+    }
+    
+    try {
+      await navigator.clipboard.writeText(driverNamesText);
+      alert('Driver names with vehicle types copied to clipboard with spacing!');
+    } catch (error) {
+      console.error('Failed to copy driver names:', error);
+      alert('Failed to copy driver names to clipboard');
+    }
+  };
+
+  const copyVehicleTypes = async () => {
+    // Group by vehicle type for organized copying
+    const fourWheelers = driverSummaries.filter(d => d.vehicleType === '4w');
+    const threeWheelers = driverSummaries.filter(d => d.vehicleType === '3w');
+    const twoWheelers = driverSummaries.filter(d => d.vehicleType === '2w');
+    
+    let vehicleTypesText = '';
+    
+    // Add 4W types
+    if (fourWheelers.length > 0) {
+      vehicleTypesText += fourWheelers.map(() => '4W').join('\n');
+    }
+    
+    // Add spacing between 4w and 3w/2w
+    if (fourWheelers.length > 0 && (threeWheelers.length > 0 || twoWheelers.length > 0)) {
+      vehicleTypesText += '\n\n';
+    }
+    
+    // Add 3W types
+    if (threeWheelers.length > 0) {
+      vehicleTypesText += threeWheelers.map(() => '3W').join('\n');
+    }
+    
+    // Add spacing between 3w and 2w
+    if (threeWheelers.length > 0 && twoWheelers.length > 0) {
+      vehicleTypesText += '\n\n';
+    }
+    
+    // Add 2W types
+    if (twoWheelers.length > 0) {
+      vehicleTypesText += twoWheelers.map(() => '2W').join('\n');
+    }
+    
+    try {
+      await navigator.clipboard.writeText(vehicleTypesText);
+      alert('Vehicle types copied to clipboard with spacing!');
+    } catch (error) {
+      console.error('Failed to copy vehicle types:', error);
+      alert('Failed to copy vehicle types to clipboard');
+    }
+  };
+
+  const copySuccessRates = async () => {
+    // Group by vehicle type for organized copying
+    const fourWheelers = driverSummaries.filter(d => d.vehicleType === '4w');
+    const threeWheelers = driverSummaries.filter(d => d.vehicleType === '3w');
+    const twoWheelers = driverSummaries.filter(d => d.vehicleType === '2w');
+    
+    let successRatesText = '';
+    
+    // Add 4-wheelers success rates
+    if (fourWheelers.length > 0) {
+      successRatesText += fourWheelers.map(summary => {
+        const totalDelivered = summary.totalSuccessful;
+        const totalParcels = summary.totalParcels;
+        const successRate = totalParcels > 0 ? ((totalDelivered / totalParcels) * 100).toFixed(1) : '0.0';
+        return `${successRate}%`;
+      }).join('\n');
+    }
+    
+    // Add spacing between 4w and 3w/2w
+    if (fourWheelers.length > 0 && (threeWheelers.length > 0 || twoWheelers.length > 0)) {
+      successRatesText += '\n\n';
+    }
+    
+    // Add 3-wheelers success rates
+    if (threeWheelers.length > 0) {
+      successRatesText += threeWheelers.map(summary => {
+        const totalDelivered = summary.totalSuccessful;
+        const totalParcels = summary.totalParcels;
+        const successRate = totalParcels > 0 ? ((totalDelivered / totalParcels) * 100).toFixed(1) : '0.0';
+        return `${successRate}%`;
+      }).join('\n');
+    }
+    
+    // Add spacing between 3w and 2w
+    if (threeWheelers.length > 0 && twoWheelers.length > 0) {
+      successRatesText += '\n\n';
+    }
+    
+    // Add 2-wheelers success rates
+    if (twoWheelers.length > 0) {
+      successRatesText += twoWheelers.map(summary => {
+        const totalDelivered = summary.totalSuccessful;
+        const totalParcels = summary.totalParcels;
+        const successRate = totalParcels > 0 ? ((totalDelivered / totalParcels) * 100).toFixed(1) : '0.0';
+        return `${successRate}%`;
+      }).join('\n');
+    }
+    
+    try {
+      await navigator.clipboard.writeText(successRatesText);
+      alert('Success rates copied to clipboard with vehicle type spacing!');
+    } catch (error) {
+      console.error('Failed to copy success rates:', error);
+      alert('Failed to copy success rates to clipboard');
+    }
+  };
+
+  const copyDeliveredCounts = async () => {
+    // Group by vehicle type for organized copying
+    const fourWheelers = driverSummaries.filter(d => d.vehicleType === '4w');
+    const threeWheelers = driverSummaries.filter(d => d.vehicleType === '3w');
+    const twoWheelers = driverSummaries.filter(d => d.vehicleType === '2w');
+    
+    let deliveredText = '';
+    
+    // Add 4-wheelers delivered counts
+    if (fourWheelers.length > 0) {
+      deliveredText += fourWheelers.map(summary => summary.totalSuccessful).join('\n');
+    }
+    
+    // Add spacing between 4w and 3w/2w
+    if (fourWheelers.length > 0 && (threeWheelers.length > 0 || twoWheelers.length > 0)) {
+      deliveredText += '\n\n';
+    }
+    
+    // Add 3-wheelers delivered counts
+    if (threeWheelers.length > 0) {
+      deliveredText += threeWheelers.map(summary => summary.totalSuccessful).join('\n');
+    }
+    
+    // Add spacing between 3w and 2w
+    if (threeWheelers.length > 0 && twoWheelers.length > 0) {
+      deliveredText += '\n\n';
+    }
+    
+    // Add 2-wheelers delivered counts
+    if (twoWheelers.length > 0) {
+      deliveredText += twoWheelers.map(summary => summary.totalSuccessful).join('\n');
+    }
+    
+    try {
+      await navigator.clipboard.writeText(deliveredText);
+      alert('Delivered counts copied to clipboard with vehicle type spacing!');
+    } catch (error) {
+      console.error('Failed to copy delivered counts:', error);
+      alert('Failed to copy delivered counts to clipboard');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -453,22 +637,40 @@ const AnalyzeTripsModal: React.FC<AnalyzeTripsModalProps> = ({ isOpen, onClose }
                     📋 Copy Names
                   </button>
                   <button
+                    onClick={copyDriverNamesWithTypes}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md transition-colors"
+                  >
+                    🏷️ Copy Names + Types
+                  </button>
+                  <button
                     onClick={copyTotalParcels}
                     className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md transition-colors"
                   >
                     📦 Copy Totals
                   </button>
                   <button
-                    onClick={handleReset}
-                    className="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-md transition-colors"
+                    onClick={copyVehicleTypes}
+                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-md transition-colors"
                   >
-                    Analyze New Data
+                    🚚 Copy Vehicle Types
+                  </button>
+                  <button
+                    onClick={copyDeliveredCounts}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"
+                  >
+                    ✅ Copy Delivered
+                  </button>
+                  <button
+                    onClick={copySuccessRates}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md transition-colors"
+                  >
+                    📊 Copy Success Rates
                   </button>
                 </div>
               </div>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
                   <h4 className="font-semibold text-blue-800 dark:text-blue-400">Total Drivers</h4>
                   <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{driverSummaries.length}</p>
@@ -485,6 +687,19 @@ const AnalyzeTripsModal: React.FC<AnalyzeTripsModalProps> = ({ isOpen, onClose }
                     {driverSummaries.reduce((sum, d) => sum + d.totalParcels, 0)}
                   </p>
                 </div>
+                <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <h4 className="font-semibold text-orange-800 dark:text-orange-400">Overall Success Rate</h4>
+                  <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                    {(() => {
+                      const totalDelivered = driverSummaries.reduce((sum, d) => sum + d.totalSuccessful, 0);
+                      const totalParcels = driverSummaries.reduce((sum, d) => sum + d.totalParcels, 0);
+                      return totalParcels > 0 ? `${((totalDelivered / totalParcels) * 100).toFixed(1)}%` : '0%';
+                    })()}
+                  </p>
+                  <p className="text-sm text-orange-600 dark:text-orange-400">
+                    {driverSummaries.reduce((sum, d) => sum + d.totalSuccessful, 0)} / {driverSummaries.reduce((sum, d) => sum + d.totalParcels, 0)} delivered
+                  </p>
+                </div>
               </div>
 
               {/* Vehicle Type Summary */}
@@ -497,6 +712,17 @@ const AnalyzeTripsModal: React.FC<AnalyzeTripsModalProps> = ({ isOpen, onClose }
                   <p className="text-sm text-blue-600 dark:text-blue-400">
                     Total Parcels: {driverSummaries.filter(d => d.vehicleType === '4w').reduce((sum, d) => sum + d.totalParcels, 0)}
                   </p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    Delivered: {driverSummaries.filter(d => d.vehicleType === '4w').reduce((sum, d) => sum + d.totalSuccessful, 0)}
+                  </p>
+                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                    Success Rate: {(() => {
+                      const fourWheelers = driverSummaries.filter(d => d.vehicleType === '4w');
+                      const totalDelivered = fourWheelers.reduce((sum, d) => sum + d.totalSuccessful, 0);
+                      const totalParcels = fourWheelers.reduce((sum, d) => sum + d.totalParcels, 0);
+                      return totalParcels > 0 ? `${((totalDelivered / totalParcels) * 100).toFixed(1)}%` : '0%';
+                    })()}
+                  </p>
                 </div>
                 <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
                   <h4 className="font-semibold text-green-800 dark:text-green-400 mb-2">2-Wheeler Drivers</h4>
@@ -506,119 +732,113 @@ const AnalyzeTripsModal: React.FC<AnalyzeTripsModalProps> = ({ isOpen, onClose }
                   <p className="text-sm text-green-600 dark:text-green-400">
                     Total Parcels: {driverSummaries.filter(d => d.vehicleType === '2w').reduce((sum, d) => sum + d.totalParcels, 0)}
                   </p>
-                </div>
-                <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-                  <h4 className="font-semibold text-red-800 dark:text-red-400 mb-2">Missing from Database</h4>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    {driverSummaries.filter(d => !d.inDatabase).length}
+                  <p className="text-sm text-green-600 dark:text-green-400">
+                    Delivered: {driverSummaries.filter(d => d.vehicleType === '2w').reduce((sum, d) => sum + d.totalSuccessful, 0)}
                   </p>
-                  <p className="text-sm text-red-600 dark:text-red-400">
-                    Need to be added
+                  <p className="text-sm font-semibold text-green-600 dark:text-green-400">
+                    Success Rate: {(() => {
+                      const twoWheelers = driverSummaries.filter(d => d.vehicleType === '2w');
+                      const totalDelivered = twoWheelers.reduce((sum, d) => sum + d.totalSuccessful, 0);
+                      const totalParcels = twoWheelers.reduce((sum, d) => sum + d.totalParcels, 0);
+                      return totalParcels > 0 ? `${((totalDelivered / totalParcels) * 100).toFixed(1)}%` : '0%';
+                    })()}
+                  </p>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <h4 className="font-semibold text-purple-800 dark:text-purple-400 mb-2">3-Wheeler Drivers</h4>
+                  <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    {driverSummaries.filter(d => d.vehicleType === '3w').length}
+                  </p>
+                  <p className="text-sm text-purple-600 dark:text-purple-400">
+                    Total Parcels: {driverSummaries.filter(d => d.vehicleType === '3w').reduce((sum, d) => sum + d.totalParcels, 0)}
+                  </p>
+                  <p className="text-sm text-purple-600 dark:text-purple-400">
+                    Delivered: {driverSummaries.filter(d => d.vehicleType === '3w').reduce((sum, d) => sum + d.totalSuccessful, 0)}
+                  </p>
+                  <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                    Success Rate: {(() => {
+                      const threeWheelers = driverSummaries.filter(d => d.vehicleType === '3w');
+                      const totalDelivered = threeWheelers.reduce((sum, d) => sum + d.totalSuccessful, 0);
+                      const totalParcels = threeWheelers.reduce((sum, d) => sum + d.totalParcels, 0);
+                      return totalParcels > 0 ? `${((totalDelivered / totalParcels) * 100).toFixed(1)}%` : '0%';
+                    })()}
                   </p>
                 </div>
               </div>
 
               {/* Parcels Summary */}
               <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-700/20 rounded-lg border border-slate-200 dark:border-slate-700">
-                <h4 className="font-semibold text-slate-800 dark:text-slate-300 mb-2">Parcels Distribution Summary</h4>
+                <h4 className="font-semibold text-slate-800 dark:text-slate-300 mb-2">Delivery Performance Summary</h4>
                 <p className="text-lg text-slate-700 dark:text-slate-300">
-                  <span className="font-bold text-blue-600 dark:text-blue-400">4W</span> - {driverSummaries.filter(d => d.vehicleType === '4w').reduce((sum, d) => sum + d.totalParcels, 0).toLocaleString()} parcels | 
-                  <span className="font-bold text-green-600 dark:text-green-400 ml-2">2W</span> - {driverSummaries.filter(d => d.vehicleType === '2w').reduce((sum, d) => sum + d.totalParcels, 0).toLocaleString()} parcels
+                  <span className="font-bold text-blue-600 dark:text-blue-400">4W</span> - {driverSummaries.filter(d => d.vehicleType === '4w').reduce((sum, d) => sum + d.totalSuccessful, 0).toLocaleString()}/{driverSummaries.filter(d => d.vehicleType === '4w').reduce((sum, d) => sum + d.totalParcels, 0).toLocaleString()} delivered | 
+                  <span className="font-bold text-green-600 dark:text-green-400 ml-2">2W</span> - {driverSummaries.filter(d => d.vehicleType === '2w').reduce((sum, d) => sum + d.totalSuccessful, 0).toLocaleString()}/{driverSummaries.filter(d => d.vehicleType === '2w').reduce((sum, d) => sum + d.totalParcels, 0).toLocaleString()} delivered
                 </p>
               </div>
 
               {/* Driver Details Table */}
               <div className="overflow-x-auto">
-                <table className="min-w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
-                  <thead className="bg-slate-50 dark:bg-slate-700/50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                        Driver Name
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                        Vehicle Type
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                        Database Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                        Driver ID
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                        Trip Count
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                        Total Parcels
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                        Successful
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                        Success Rate
-                      </th>
+                <table className="w-full border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-700">
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">Driver</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">Vehicle Type</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">Trips</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">Total Parcels</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">Delivered</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">Success Rate</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                  <tbody>
                     {driverSummaries.map((summary, index) => (
-                      <tr key={index} className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 ${
-                        !summary.inDatabase ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''
-                      }`}>
+                      <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
                         <td className="px-4 py-3 text-sm font-medium text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-700">
-                          <div className="flex items-center space-x-2">
-                            <span>{summary.driver}</span>
-                            {!summary.inDatabase && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400">
-                                ⚠️ Missing
-                              </span>
-                            )}
-                          </div>
+                          {summary.driver}
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             summary.vehicleType === '4w' 
-                              ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
                               : summary.vehicleType === '3w'
-                              ? 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-400'
-                              : 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400'
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400'
+                              : 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
                           }`}>
-                            🚗 {summary.vehicleType?.toUpperCase() || '2W'}
+                            {summary.vehicleType?.toUpperCase()}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            summary.inDatabase
-                              ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400'
-                              : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-400'
-                          }`}>
-                            {summary.inDatabase ? '✅ In DB' : '❌ Missing'}
-                          </span>
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                          {summary.tripCount}
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
-                          {summary.driverId}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
-                          <span className="bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-400 px-2 py-1 rounded-full text-xs font-medium">
-                            {summary.tripCount}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
-                          <span className="font-semibold text-slate-900 dark:text-white">{summary.totalParcels}</span>
+                        <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                          {summary.totalParcels}
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                           <span className="text-green-600 dark:text-green-400 font-semibold">{summary.totalSuccessful}</span>
+                          <span className="text-slate-400 text-xs ml-1">/ {summary.totalParcels}</span>
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                           <span className={`font-semibold ${
-                            summary.totalSuccessful > 0 
-                              ? (summary.totalSuccessful / (summary.totalSuccessful + summary.totalFailed) * 100) >= 90 
+                            summary.totalParcels > 0 
+                              ? (summary.totalSuccessful / summary.totalParcels * 100) >= 90 
                                 ? 'text-green-600 dark:text-green-400' 
-                                : 'text-yellow-600 dark:text-yellow-400'
+                                : (summary.totalSuccessful / summary.totalParcels * 100) >= 75
+                                ? 'text-yellow-600 dark:text-yellow-400'
+                                : 'text-red-600 dark:text-red-400'
                               : 'text-slate-400'
                           }`}>
-                            {summary.totalSuccessful > 0 || summary.totalFailed > 0
-                              ? `${((summary.totalSuccessful / (summary.totalSuccessful + summary.totalFailed)) * 100).toFixed(1)}%`
+                            {summary.totalParcels > 0
+                              ? `${((summary.totalSuccessful / summary.totalParcels) * 100).toFixed(1)}%`
                               : 'N/A'
                             }
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            summary.inDatabase 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                          }`}>
+                            {summary.inDatabase ? 'In DB' : 'Missing'}
                           </span>
                         </td>
                       </tr>
@@ -626,6 +846,14 @@ const AnalyzeTripsModal: React.FC<AnalyzeTripsModalProps> = ({ isOpen, onClose }
                   </tbody>
                 </table>
               </div>
+
+              {/* Back button */}
+              <button
+                onClick={handleReset}
+                className="mt-6 bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-md transition-colors"
+              >
+                ← Back to Input
+              </button>
 
               {/* Missing Drivers Notification */}
               {missingDrivers.length > 0 && (

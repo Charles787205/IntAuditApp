@@ -3,10 +3,10 @@ import { prisma } from '@lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { trackingNumber: string } }
+  { params }: { params: Promise<{ trackingNumber: string }> }
 ) {
   try {
-    const { trackingNumber } = params;
+    const { trackingNumber } = await params;
 
     // Fetch parcel event logs for the specific tracking number
     const eventLogs = await prisma.parcelEventLog.findMany({

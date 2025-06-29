@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import CreateNewHandover from '@components/handover/CreateNewHandover';
-import UploadUpdates from '@components/handover/UploadUpdates';
-import PrintHandoverReport from '@components/handover/PrintHandoverReport';
+import CreateNewHandover from '@/components/lazada/handover/CreateNewHandover';
+import UploadUpdates from '@/components/lazada/handover/UploadUpdates';
+import PrintHandoverReport from '@/components/lazada/handover/PrintHandoverReport';
 
 interface HandoverData {
   trackingNo: string;
